@@ -1,1 +1,28 @@
 @import "tailwindcss";
+
+@theme {
+  --font-display: 'Tajawal', sans-serif;
+  --font-body: 'Almarai', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+
+  --color-navy-950: #0a1229;
+  --color-navy-900: #101d40;
+  --color-navy-800: #182a5c;
+  --color-navy-700: #24397a;
+  --color-accent: #f0930f;
+  --color-accent-dark: #c9750a;
+  --color-surface: #f5f6fa;
+  --color-border-soft: #e3e6ef;
+}
+
+body {
+  font-family: var(--font-body);
+}
+
+h1, h2, h3, .font-display {
+  font-family: var(--font-display);
+}
+
+.font-mono-data {
+  font-family: var(--font-mono);
+}
