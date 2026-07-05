@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Loader2 } from 'lucide-react'
 import { supabase } from '../lib/supabaseClient'
 
 export default function Login() {
@@ -23,7 +24,7 @@ export default function Login() {
     <div className="min-h-screen flex items-center justify-center bg-surface">
       <form
         onSubmit={handleLogin}
-        className="bg-white p-8 rounded-lg shadow-md w-80 border-t-4 border-accent"
+        className="page-enter card p-8 w-80 border-t-4 border-accent"
       >
         <h1 className="font-display text-xl font-bold mb-6 text-navy-900 text-center">
           تسجيل الدخول
@@ -34,7 +35,7 @@ export default function Login() {
           placeholder="اسم المستخدم"
           value={username}
           onChange={(e) => setUsername(e.target.value)}
-          className="w-full border border-border-soft rounded px-3 py-2 mb-3 focus:outline-none focus:ring-2 focus:ring-accent"
+          className="w-full border border-border-soft rounded-lg px-3 py-2 mb-3 focus:outline-none focus:ring-2 focus:ring-accent transition-shadow"
           required
         />
         <input
@@ -42,14 +43,15 @@ export default function Login() {
           placeholder="كلمة المرور"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          className="w-full border border-border-soft rounded px-3 py-2 mb-4 focus:outline-none focus:ring-2 focus:ring-accent"
+          className="w-full border border-border-soft rounded-lg px-3 py-2 mb-4 focus:outline-none focus:ring-2 focus:ring-accent transition-shadow"
           required
         />
         <button
           type="submit"
           disabled={loading}
-          className="w-full bg-accent text-white rounded py-2 font-medium hover:bg-accent-dark transition-colors"
+          className="w-full flex items-center justify-center gap-2 bg-accent text-white rounded-lg py-2 font-medium hover:bg-accent-dark active:scale-[0.98] transition-all disabled:opacity-70"
         >
+          {loading && <Loader2 size={16} className="animate-spin" />}
           {loading ? 'جاري الدخول...' : 'دخول'}
         </button>
       </form>

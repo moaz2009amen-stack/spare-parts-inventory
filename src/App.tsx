@@ -3,8 +3,15 @@ import { AuthProvider } from './context/AuthProvider'
 import { useAuth } from './context/useAuth'
 import Login from './pages/Login'
 import Layout from './components/Layout'
+import Dashboard from './pages/Dashboard'
 import Products from './pages/Products'
-import ComingSoon from './pages/ComingSoon'
+import Categories from './pages/Categories'
+import Customers from './pages/Customers'
+import Suppliers from './pages/Suppliers'
+import Sales from './pages/Sales'
+import Purchases from './pages/Purchases'
+import InvoicesList from './pages/InvoicesList'
+import Inventory from './pages/Inventory'
 
 function AppContent() {
   const { session, loading } = useAuth()
@@ -16,13 +23,16 @@ function AppContent() {
     <BrowserRouter>
       <Routes>
         <Route element={<Layout />}>
-          <Route path="/" element={<Navigate to="/products" replace />} />
+          <Route path="/" element={<Navigate to="/dashboard" replace />} />
+          <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/products" element={<Products />} />
-          <Route path="/customers" element={<ComingSoon title="العملاء" />} />
-          <Route path="/suppliers" element={<ComingSoon title="الموردين" />} />
-          <Route path="/sales" element={<ComingSoon title="المبيعات" />} />
-          <Route path="/purchases" element={<ComingSoon title="المشتريات" />} />
-          <Route path="/inventory" element={<ComingSoon title="المخزون" />} />
+          <Route path="/categories" element={<Categories />} />
+          <Route path="/customers" element={<Customers />} />
+          <Route path="/suppliers" element={<Suppliers />} />
+          <Route path="/sales" element={<Sales />} />
+          <Route path="/purchases" element={<Purchases />} />
+          <Route path="/invoices" element={<InvoicesList />} />
+          <Route path="/inventory" element={<Inventory />} />
         </Route>
       </Routes>
     </BrowserRouter>

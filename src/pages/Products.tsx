@@ -1,19 +1,25 @@
 import { useEffect, useState } from 'react'
+import { ChevronDown, ChevronUp, Loader2 } from 'lucide-react'
 import { supabase } from '../lib/supabaseClient'
 import type { Database } from '../lib/database.types'
+import ProductUnitsPanel from '../components/ProductUnitsPanel'
 
 type Product = Database['public']['Tables']['products']['Row']
+type Category = Database['public']['Tables']['categories']['Row']
 
 export default function Products() {
   const [products, setProducts] = useState<Product[]>([])
+  const [categories, setCategories] = useState<Category[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
+  const [expandedId, setExpandedId] = useState<string | null>(null)
 
   const [form, setForm] = useState({
     part_number: '',
     barcode: '',
     name: '',
+    category_id: '',
     base_unit: 'قطعة',
     cost_price: '',
     sale_price: '',
@@ -34,23 +40,25 @@ export default function Products() {
   useEffect(() => {
     let cancelled = false
 
-    supabase
-      .from('products')
-      .select('*')
-      .order('created_at', { ascending: false })
-      .then(({ data, error }) => {
-        if (cancelled) return
-        if (error) setError(error.message)
-        else setProducts(data ?? [])
-        setLoading(false)
-      })
+    Promise.all([
+      supabase.from('products').select('*').order('created_at', { ascending: false }),
+      supabase.from('categories').select('*').order('name', { ascending: true }),
+    ]).then(([productsRes, categoriesRes]) => {
+      if (cancelled) return
+      if (productsRes.error) setError(productsRes.error.message)
+      else setProducts(productsRes.data ?? [])
+      if (categoriesRes.data) setCategories(categoriesRes.data)
+      setLoading(false)
+    })
 
     return () => {
       cancelled = true
     }
   }, [])
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
+  ) => {
     setForm({ ...form, [e.target.name]: e.target.value })
   }
 
@@ -63,6 +71,7 @@ export default function Products() {
       part_number: form.part_number,
       barcode: form.barcode || null,
       name: form.name,
+      category_id: form.category_id || null,
       base_unit: form.base_unit,
       cost_price: Number(form.cost_price) || 0,
       sale_price: Number(form.sale_price) || 0,
@@ -80,6 +89,7 @@ export default function Products() {
         part_number: '',
         barcode: '',
         name: '',
+        category_id: '',
         base_unit: 'قطعة',
         cost_price: '',
         sale_price: '',
@@ -91,13 +101,16 @@ export default function Products() {
     setSaving(false)
   }
 
+  const categoryName = (id: string | null) =>
+    categories.find((c) => c.id === id)?.name ?? '-'
+
   return (
-    <div className="p-6 max-w-5xl mx-auto">
+    <div className="page-enter p-6 max-w-5xl mx-auto">
       <h1 className="font-display text-2xl font-bold text-navy-900 mb-6">إدارة الأصناف</h1>
 
       <form
         onSubmit={handleSubmit}
-        className="bg-white p-6 rounded-lg shadow-sm border border-border-soft mb-8 grid grid-cols-2 gap-4"
+        className="card p-6 mb-8 grid grid-cols-2 gap-4"
       >
         <input
           name="part_number"
@@ -105,14 +118,14 @@ export default function Products() {
           onChange={handleChange}
           placeholder="رقم القطعة"
           required
-          className="border border-border-soft rounded px-3 py-2 font-mono-data focus:outline-none focus:ring-2 focus:ring-accent"
+          className="border border-border-soft rounded-lg px-3 py-2 font-mono-data focus:outline-none focus:ring-2 focus:ring-accent transition-shadow"
         />
         <input
           name="barcode"
           value={form.barcode}
           onChange={handleChange}
           placeholder="الباركود (اختياري)"
-          className="border border-border-soft rounded px-3 py-2 font-mono-data focus:outline-none focus:ring-2 focus:ring-accent"
+          className="border border-border-soft rounded-lg px-3 py-2 font-mono-data focus:outline-none focus:ring-2 focus:ring-accent transition-shadow"
         />
         <input
           name="name"
@@ -120,8 +133,19 @@ export default function Products() {
           onChange={handleChange}
           placeholder="اسم الصنف"
           required
-          className="border border-border-soft rounded px-3 py-2 col-span-2 focus:outline-none focus:ring-2 focus:ring-accent"
+          className="border border-border-soft rounded-lg px-3 py-2 col-span-2 focus:outline-none focus:ring-2 focus:ring-accent transition-shadow"
         />
+        <select
+          name="category_id"
+          value={form.category_id}
+          onChange={handleChange}
+          className="border border-border-soft rounded-lg px-3 py-2 col-span-2 focus:outline-none focus:ring-2 focus:ring-accent transition-shadow"
+        >
+          <option value="">بدون تصنيف</option>
+          {categories.map((c) => (
+            <option key={c.id} value={c.id}>{c.name}</option>
+          ))}
+        </select>
         <input
           name="cost_price"
           value={form.cost_price}
@@ -129,7 +153,7 @@ export default function Products() {
           placeholder="سعر التكلفة"
           type="number"
           step="0.01"
-          className="border border-border-soft rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-accent"
+          className="border border-border-soft rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-accent transition-shadow"
         />
         <input
           name="sale_price"
@@ -138,7 +162,7 @@ export default function Products() {
           placeholder="سعر البيع"
           type="number"
           step="0.01"
-          className="border border-border-soft rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-accent"
+          className="border border-border-soft rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-accent transition-shadow"
         />
         <input
           name="min_stock_alert"
@@ -146,7 +170,7 @@ export default function Products() {
           onChange={handleChange}
           placeholder="حد التنبيه الأدنى"
           type="number"
-          className="border border-border-soft rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-accent"
+          className="border border-border-soft rounded-lg px-3 py-2 col-span-2 focus:outline-none focus:ring-2 focus:ring-accent transition-shadow"
         />
 
         {error && <p className="text-red-600 text-sm col-span-2">{error}</p>}
@@ -154,39 +178,75 @@ export default function Products() {
         <button
           type="submit"
           disabled={saving}
-          className="col-span-2 bg-accent text-white rounded py-2 font-medium hover:bg-accent-dark transition-colors"
+          className="col-span-2 flex items-center justify-center gap-2 bg-accent text-white rounded-lg py-2.5 font-medium hover:bg-accent-dark active:scale-[0.98] transition-all disabled:opacity-70"
         >
+          {saving && <Loader2 size={16} className="animate-spin" />}
           {saving ? 'جاري الحفظ...' : 'إضافة الصنف'}
         </button>
       </form>
 
-      <div className="bg-white rounded-lg shadow-sm border border-border-soft overflow-hidden">
-        <table className="w-full text-right">
-          <thead className="bg-navy-900 text-white text-sm">
-            <tr>
-              <th className="p-3 font-display font-medium">رقم القطعة</th>
-              <th className="p-3 font-display font-medium">الاسم</th>
-              <th className="p-3 font-display font-medium">سعر البيع</th>
-              <th className="p-3 font-display font-medium">التكلفة</th>
-            </tr>
-          </thead>
-          <tbody>
-            {loading ? (
-              <tr><td colSpan={4} className="p-4 text-center text-slate-500">جاري التحميل...</td></tr>
-            ) : products.length === 0 ? (
-              <tr><td colSpan={4} className="p-4 text-center text-slate-500">لا توجد أصناف بعد</td></tr>
-            ) : (
-              products.map((p) => (
-                <tr key={p.id} className="border-t border-border-soft">
-                  <td className="p-3 font-mono-data">{p.part_number}</td>
-                  <td className="p-3">{p.name}</td>
-                  <td className="p-3 font-mono-data">{p.sale_price}</td>
-                  <td className="p-3 font-mono-data">{p.cost_price}</td>
+      <div className="card overflow-hidden">
+        <div className="table-scroll">
+          <table className="w-full text-right">
+            <thead className="bg-navy-900 text-white text-sm">
+              <tr>
+                <th className="p-3 font-display font-medium whitespace-nowrap">رقم القطعة</th>
+                <th className="p-3 font-display font-medium whitespace-nowrap">الاسم</th>
+                <th className="p-3 font-display font-medium whitespace-nowrap">التصنيف</th>
+                <th className="p-3 font-display font-medium whitespace-nowrap">سعر البيع</th>
+                <th className="p-3 font-display font-medium whitespace-nowrap">التكلفة</th>
+                <th className="p-3"></th>
+              </tr>
+            </thead>
+            <tbody>
+              {loading ? (
+                <tr>
+                  <td colSpan={6} className="p-6 text-center text-slate-500">
+                    <div className="flex items-center justify-center gap-2">
+                      <Loader2 size={16} className="animate-spin" />
+                      جاري التحميل...
+                    </div>
+                  </td>
                 </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+              ) : products.length === 0 ? (
+                <tr><td colSpan={6} className="p-6 text-center text-slate-500">لا توجد أصناف بعد</td></tr>
+              ) : (
+                products.map((p) => (
+                  <>
+                    <tr
+                      key={p.id}
+                      className="border-t border-border-soft hover:bg-surface transition-colors"
+                    >
+                      <td className="p-3 font-mono-data whitespace-nowrap">{p.part_number}</td>
+                      <td className="p-3 whitespace-nowrap">{p.name}</td>
+                      <td className="p-3 whitespace-nowrap">{categoryName(p.category_id)}</td>
+                      <td className="p-3 font-mono-data whitespace-nowrap">{p.sale_price}</td>
+                      <td className="p-3 font-mono-data whitespace-nowrap">{p.cost_price}</td>
+                      <td className="p-3 text-left">
+                        <button
+                          onClick={() => setExpandedId(expandedId === p.id ? null : p.id)}
+                          className="flex items-center gap-1 text-sm text-accent-dark hover:text-accent transition-colors"
+                        >
+                          الوحدات
+                          {expandedId === p.id ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                        </button>
+                      </td>
+                    </tr>
+                    {expandedId === p.id && (
+                      <tr>
+                        <td colSpan={6} className="p-0">
+                          <div className="panel-enter">
+                            <ProductUnitsPanel productId={p.id} />
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   )
