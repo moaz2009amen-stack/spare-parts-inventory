@@ -72,7 +72,7 @@ export default function GlobalSearch() {
   }, [query])
 
   return (
-    <div className="relative w-80" ref={boxRef}>
+    <div className="relative w-full max-w-md" ref={boxRef}>
       <div className="relative">
         <Search size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400" />
         <input
@@ -82,8 +82,8 @@ export default function GlobalSearch() {
             setOpen(true)
           }}
           onFocus={() => setOpen(true)}
-          placeholder="ابحث برقم فاتورة، عميل، مورد، صنف..."
-          className="w-full border border-border-soft rounded-lg pr-9 pl-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent"
+          placeholder="ابحث برقم فاتورة، عميل، صنف..."
+          className="w-full border border-border-soft rounded-xl pr-9 pl-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent transition-shadow"
         />
         {loading && (
           <Loader2 size={14} className="absolute left-3 top-1/2 -translate-y-1/2 animate-spin text-slate-400" />
@@ -91,7 +91,7 @@ export default function GlobalSearch() {
       </div>
 
       {open && query.trim().length >= 2 && (
-        <div className="page-enter absolute top-full mt-1 w-full bg-white rounded-lg shadow-lg border border-border-soft overflow-hidden z-50">
+        <div className="pop-enter absolute top-full mt-1 w-full max-w-[90vw] bg-white rounded-xl shadow-lg border border-border-soft overflow-hidden z-50">
           {results.length === 0 && !loading ? (
             <p className="p-4 text-center text-sm text-slate-500">لا توجد نتائج</p>
           ) : (
@@ -103,13 +103,13 @@ export default function GlobalSearch() {
                   setOpen(false)
                   setQuery('')
                 }}
-                className="w-full text-right p-3 hover:bg-surface transition-colors border-b border-border-soft last:border-b-0 flex items-center justify-between"
+                className="w-full text-right p-3 hover:bg-surface transition-colors border-b border-border-soft last:border-b-0 flex items-center justify-between gap-2"
               >
-                <div>
-                  <p className="text-sm font-medium text-navy-900">{r.label}</p>
-                  {r.sublabel && <p className="text-xs text-slate-400 font-mono-data">{r.sublabel}</p>}
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-navy-900 truncate">{r.label}</p>
+                  {r.sublabel && <p className="text-xs text-slate-400 font-mono-data truncate">{r.sublabel}</p>}
                 </div>
-                <span className="text-xs bg-surface text-slate-500 px-2 py-1 rounded">{r.type}</span>
+                <span className="shrink-0 text-xs bg-surface text-slate-500 px-2 py-1 rounded-lg">{r.type}</span>
               </button>
             ))
           )}

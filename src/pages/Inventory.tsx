@@ -69,12 +69,12 @@ export default function Inventory() {
   const lowCount = rows.filter((r) => r.isLow).length
 
   return (
-    <div className="page-enter p-6 max-w-5xl mx-auto">
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="font-display text-2xl font-bold text-navy-900">المخزون الحالي</h1>
+    <div className="page-enter p-4 md:p-6 max-w-5xl mx-auto">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5 md:mb-6">
+        <h1 className="font-display text-xl md:text-2xl font-bold text-navy-900">المخزون الحالي</h1>
         <button
           onClick={() => setShowLowOnly(!showLowOnly)}
-          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+          className={`flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-colors ${
             showLowOnly
               ? 'bg-red-600 text-white'
               : 'bg-white border border-border-soft text-slate-600 hover:bg-surface'

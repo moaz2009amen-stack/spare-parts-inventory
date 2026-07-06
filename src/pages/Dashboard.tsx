@@ -54,7 +54,6 @@ export default function Dashboard() {
       setTotalSales(sales.reduce((sum, s) => sum + s.total_amount, 0))
       setTotalPurchases(purchases.reduce((sum, p) => sum + p.total_amount, 0))
 
-      // أكبر العملاء حسب إجمالي مشترياتهم
       const customerTotals: Record<string, number> = {}
       sales.forEach((s) => {
         if (!s.customer_id) return
@@ -67,7 +66,6 @@ export default function Dashboard() {
           .map(([id, value]) => ({ name: customerMap[id] ?? 'غير معروف', value }))
       )
 
-      // أكتر الأصناف بيعًا (بالكمية)
       const sellingTotals: Record<string, number> = {}
       saleItems.forEach((it) => {
         sellingTotals[it.product_id] = (sellingTotals[it.product_id] ?? 0) + Number(it.quantity)
@@ -79,7 +77,6 @@ export default function Dashboard() {
           .map(([id, value]) => ({ name: productMap[id] ?? 'غير معروف', value }))
       )
 
-      // أكتر الأصناف شراءً (بالكمية)
       const purchasedTotals: Record<string, number> = {}
       purchaseItems.forEach((it) => {
         purchasedTotals[it.product_id] = (purchasedTotals[it.product_id] ?? 0) + Number(it.quantity)
@@ -91,7 +88,6 @@ export default function Dashboard() {
           .map(([id, value]) => ({ name: productMap[id] ?? 'غير معروف', value }))
       )
 
-      // آخر الفواتير (بيع + شراء مجمّعين)
       const combined: LatestInvoice[] = [
         ...sales.map((s) => ({
           invoice_number: s.invoice_number,
@@ -131,33 +127,31 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="page-enter p-6 max-w-6xl mx-auto">
-      <h1 className="font-display text-2xl font-bold text-navy-900 mb-6">لوحة الإحصائيات</h1>
+    <div className="page-enter p-4 md:p-6 max-w-6xl mx-auto">
+      <h1 className="font-display text-xl md:text-2xl font-bold text-navy-900 mb-5 md:mb-6">لوحة الإحصائيات</h1>
 
-      {/* بطاقات ملخص */}
-      <div className="grid grid-cols-2 gap-4 mb-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
         <div className="card p-5 flex items-center gap-4">
-          <div className="w-11 h-11 rounded-lg bg-emerald-50 flex items-center justify-center text-emerald-600">
+          <div className="w-11 h-11 shrink-0 rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-600">
             <TrendingUp size={20} />
           </div>
-          <div>
+          <div className="min-w-0">
             <p className="text-sm text-slate-500">إجمالي المبيعات</p>
             <p className="font-mono-data font-bold text-xl text-navy-900">{totalSales.toFixed(2)}</p>
           </div>
         </div>
         <div className="card p-5 flex items-center gap-4">
-          <div className="w-11 h-11 rounded-lg bg-red-50 flex items-center justify-center text-red-600">
+          <div className="w-11 h-11 shrink-0 rounded-xl bg-red-50 flex items-center justify-center text-red-600">
             <TrendingDown size={20} />
           </div>
-          <div>
+          <div className="min-w-0">
             <p className="text-sm text-slate-500">إجمالي المشتريات</p>
             <p className="font-mono-data font-bold text-xl text-navy-900">{totalPurchases.toFixed(2)}</p>
           </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-6 mb-6">
-        {/* أهم العملاء */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-6">
         <div className="card p-5">
           <div className="flex items-center gap-2 mb-3">
             <Users size={16} className="text-accent-dark" />
@@ -168,16 +162,15 @@ export default function Dashboard() {
           ) : (
             <ul className="space-y-2">
               {topCustomers.map((c, i) => (
-                <li key={i} className="flex justify-between text-sm">
-                  <span>{c.name}</span>
-                  <span className="font-mono-data font-medium">{c.value.toFixed(2)}</span>
+                <li key={i} className="flex justify-between gap-2 text-sm">
+                  <span className="truncate">{c.name}</span>
+                  <span className="font-mono-data font-medium shrink-0">{c.value.toFixed(2)}</span>
                 </li>
               ))}
             </ul>
           )}
         </div>
 
-        {/* أكتر الأصناف بيعًا */}
         <div className="card p-5">
           <div className="flex items-center gap-2 mb-3">
             <Package size={16} className="text-accent-dark" />
@@ -188,9 +181,9 @@ export default function Dashboard() {
           ) : (
             <ul className="space-y-2">
               {topSellingProducts.map((p, i) => (
-                <li key={i} className="flex justify-between text-sm">
-                  <span>{p.name}</span>
-                  <span className="font-mono-data font-medium">{p.value} قطعة</span>
+                <li key={i} className="flex justify-between gap-2 text-sm">
+                  <span className="truncate">{p.name}</span>
+                  <span className="font-mono-data font-medium shrink-0">{p.value} قطعة</span>
                 </li>
               ))}
             </ul>
@@ -198,8 +191,7 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-6 mb-6">
-        {/* أكتر الأصناف شراءً */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-6">
         <div className="card p-5">
           <div className="flex items-center gap-2 mb-3">
             <Package size={16} className="text-navy-700" />
@@ -210,16 +202,15 @@ export default function Dashboard() {
           ) : (
             <ul className="space-y-2">
               {topPurchasedProducts.map((p, i) => (
-                <li key={i} className="flex justify-between text-sm">
-                  <span>{p.name}</span>
-                  <span className="font-mono-data font-medium">{p.value} قطعة</span>
+                <li key={i} className="flex justify-between gap-2 text-sm">
+                  <span className="truncate">{p.name}</span>
+                  <span className="font-mono-data font-medium shrink-0">{p.value} قطعة</span>
                 </li>
               ))}
             </ul>
           )}
         </div>
 
-        {/* آخر الفواتير */}
         <div className="card p-5">
           <p className="font-display font-bold text-navy-900 mb-3">آخر الفواتير</p>
           {latestInvoices.length === 0 ? (
@@ -227,14 +218,14 @@ export default function Dashboard() {
           ) : (
             <ul className="space-y-2">
               {latestInvoices.map((inv, i) => (
-                <li key={i} className="flex justify-between text-sm">
-                  <span>
+                <li key={i} className="flex justify-between gap-2 text-sm">
+                  <span className="truncate">
                     <span className={inv.type === 'بيع' ? 'text-emerald-600' : 'text-red-600'}>
                       {inv.type}
                     </span>{' '}
                     — {inv.party}
                   </span>
-                  <span className="font-mono-data font-medium">{inv.total}</span>
+                  <span className="font-mono-data font-medium shrink-0">{inv.total}</span>
                 </li>
               ))}
             </ul>

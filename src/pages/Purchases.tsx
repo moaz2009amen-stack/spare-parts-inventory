@@ -190,8 +190,8 @@ export default function Purchases() {
 
   if (invoice) {
     return (
-      <div className="page-enter p-6 max-w-4xl mx-auto">
-        <h1 className="font-display text-2xl font-bold text-navy-900 mb-6 no-print">
+      <div className="page-enter p-4 md:p-6 max-w-4xl mx-auto">
+        <h1 className="font-display text-xl md:text-2xl font-bold text-navy-900 mb-6 no-print">
           تم تسجيل الفاتورة
         </h1>
         <InvoicePrint data={invoice} onNewInvoice={resetForm} />
@@ -200,14 +200,14 @@ export default function Purchases() {
   }
 
   return (
-    <div className="page-enter p-6 max-w-4xl mx-auto">
-      <h1 className="font-display text-2xl font-bold text-navy-900 mb-6">فاتورة شراء جديدة</h1>
+    <div className="page-enter p-4 md:p-6 max-w-4xl mx-auto">
+      <h1 className="font-display text-xl md:text-2xl font-bold text-navy-900 mb-5 md:mb-6">فاتورة شراء جديدة</h1>
 
-      <div className="card p-6 mb-6 grid grid-cols-2 gap-4">
+      <div className="card p-5 md:p-6 mb-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
         <select
           value={warehouseId}
           onChange={(e) => setWarehouseId(e.target.value)}
-          className="border border-border-soft rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-accent"
+          className="border border-border-soft rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-accent"
         >
           {warehouses.map((w) => (
             <option key={w.id} value={w.id}>{w.name}</option>
@@ -216,7 +216,7 @@ export default function Purchases() {
         <select
           value={supplierId}
           onChange={(e) => setSupplierId(e.target.value)}
-          className="border border-border-soft rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-accent"
+          className="border border-border-soft rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-accent"
         >
           <option value="">بدون تحديد مورد</option>
           {suppliers.map((s) => (
@@ -225,13 +225,13 @@ export default function Purchases() {
         </select>
       </div>
 
-      <div className="card p-6 mb-6">
+      <div className="card p-5 md:p-6 mb-6">
         <p className="font-display font-bold text-navy-900 mb-3">إضافة صنف</p>
-        <div className="grid grid-cols-4 gap-3 mb-3">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-3">
           <select
             value={picker.product_id}
             onChange={(e) => handleProductChange(e.target.value)}
-            className="border border-border-soft rounded-lg px-3 py-2 col-span-2 focus:outline-none focus:ring-2 focus:ring-accent"
+            className="border border-border-soft rounded-xl px-3 py-2.5 col-span-2 focus:outline-none focus:ring-2 focus:ring-accent"
           >
             <option value="">اختر صنف...</option>
             {products.map((p) => (
@@ -242,7 +242,7 @@ export default function Purchases() {
             value={picker.unit_name}
             onChange={(e) => setPicker({ ...picker, unit_name: e.target.value })}
             disabled={!picker.product_id}
-            className="border border-border-soft rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-accent"
+            className="border border-border-soft rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-accent"
           >
             {availableUnits.map((u) => (
               <option key={u.unit_name} value={u.unit_name}>{u.unit_name}</option>
@@ -253,7 +253,7 @@ export default function Purchases() {
             placeholder="الكمية"
             value={picker.quantity}
             onChange={(e) => setPicker({ ...picker, quantity: e.target.value })}
-            className="border border-border-soft rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-accent"
+            className="border border-border-soft rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-accent"
           />
           <input
             type="number"
@@ -261,12 +261,12 @@ export default function Purchases() {
             placeholder="تكلفة الوحدة"
             value={picker.unit_cost}
             onChange={(e) => setPicker({ ...picker, unit_cost: e.target.value })}
-            className="border border-border-soft rounded-lg px-3 py-2 col-span-2 focus:outline-none focus:ring-2 focus:ring-accent"
+            className="border border-border-soft rounded-xl px-3 py-2.5 col-span-2 focus:outline-none focus:ring-2 focus:ring-accent"
           />
           <button
             onClick={addToCart}
             disabled={!picker.product_id}
-            className="col-span-2 flex items-center justify-center gap-2 bg-navy-900 text-white rounded-lg py-2 font-medium hover:bg-navy-800 transition-colors disabled:opacity-50"
+            className="col-span-2 flex items-center justify-center gap-2 bg-navy-900 text-white rounded-xl py-2.5 font-medium hover:bg-navy-800 transition-colors disabled:opacity-50"
           >
             <Plus size={16} />
             أضف للفاتورة
@@ -311,7 +311,7 @@ export default function Purchases() {
         </div>
       </div>
 
-      <div className="card p-6">
+      <div className="card p-5 md:p-6">
         <div className="flex justify-between items-center mb-4">
           <span className="font-display font-bold text-lg text-navy-900">الإجمالي</span>
           <span className="font-mono-data font-bold text-lg text-navy-900">{total.toFixed(2)}</span>
@@ -322,7 +322,7 @@ export default function Purchases() {
           placeholder="المبلغ المدفوع الآن (اتركه فارغًا لو آجل بالكامل)"
           value={paidAmount}
           onChange={(e) => setPaidAmount(e.target.value)}
-          className="w-full border border-border-soft rounded-lg px-3 py-2 mb-4 focus:outline-none focus:ring-2 focus:ring-accent"
+          className="w-full border border-border-soft rounded-xl px-3 py-2.5 mb-4 focus:outline-none focus:ring-2 focus:ring-accent"
         />
 
         {error && <p className="text-red-600 text-sm mb-3">{error}</p>}
@@ -330,7 +330,7 @@ export default function Purchases() {
         <button
           onClick={handleSubmit}
           disabled={saving}
-          className="w-full flex items-center justify-center gap-2 bg-accent text-white rounded-lg py-2.5 font-medium hover:bg-accent-dark active:scale-[0.98] transition-all disabled:opacity-70"
+          className="btn-primary w-full flex items-center justify-center gap-2 text-white rounded-xl py-2.5 font-medium transition-all disabled:opacity-70"
         >
           {saving && <Loader2 size={16} className="animate-spin" />}
           {saving ? 'جاري الحفظ...' : 'تسجيل الفاتورة'}

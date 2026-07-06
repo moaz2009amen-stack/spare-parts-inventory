@@ -75,10 +75,10 @@ export default function NotificationBell() {
   }
 
   return (
-    <div className="relative" ref={menuRef}>
+    <div className="relative shrink-0" ref={menuRef}>
       <button
         onClick={handleOpen}
-        className="relative flex items-center justify-center w-9 h-9 rounded-lg hover:bg-white/10 transition-colors"
+        className="relative flex items-center justify-center w-9 h-9 rounded-xl hover:bg-surface transition-colors text-navy-900"
       >
         <Bell size={18} />
         {unreadCount > 0 && (
@@ -89,7 +89,7 @@ export default function NotificationBell() {
       </button>
 
       {open && (
-        <div className="page-enter absolute left-0 mt-2 w-80 bg-white rounded-lg shadow-lg border border-border-soft overflow-hidden z-50 text-slate-800">
+        <div className="pop-enter absolute left-0 mt-2 w-80 max-w-[85vw] bg-white rounded-xl shadow-lg border border-border-soft overflow-hidden z-50 text-slate-800">
           <div className="p-3 border-b border-border-soft font-display font-bold text-navy-900">
             الإشعارات
           </div>

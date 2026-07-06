@@ -5,18 +5,20 @@
   --font-body: 'Almarai', sans-serif;
   --font-mono: 'JetBrains Mono', monospace;
 
-  --color-navy-950: #0a1229;
+  --color-navy-950: #080f24;
   --color-navy-900: #101d40;
   --color-navy-800: #182a5c;
   --color-navy-700: #24397a;
   --color-accent: #f0930f;
   --color-accent-dark: #c9750a;
-  --color-surface: #f5f6fa;
-  --color-border-soft: #e3e6ef;
+  --color-accent-light: #ffb454;
+  --color-surface: #f4f5fa;
+  --color-border-soft: #e7e9f2;
 }
 
 body {
   font-family: var(--font-body);
+  -webkit-tap-highlight-color: transparent;
 }
 
 h1, h2, h3, .font-display {
@@ -27,49 +29,66 @@ h1, h2, h3, .font-display {
   font-family: var(--font-mono);
 }
 
-/* ===== أنيميشن عامة تُستخدم في كل الصفحات ===== */
+/* ===== أنيميشن عامة ===== */
 
 @keyframes fade-in-up {
-  from {
-    opacity: 0;
-    transform: translateY(6px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 @keyframes expand-down {
-  from {
-    opacity: 0;
-    transform: scaleY(0.95);
-  }
-  to {
-    opacity: 1;
-    transform: scaleY(1);
-  }
+  from { opacity: 0; transform: scaleY(0.95); }
+  to { opacity: 1; transform: scaleY(1); }
 }
 
-.page-enter {
-  animation: fade-in-up 0.25s ease-out;
+@keyframes pop-in {
+  from { opacity: 0; transform: scale(0.96); }
+  to { opacity: 1; transform: scale(1); }
 }
 
-.panel-enter {
-  animation: expand-down 0.18s ease-out;
-  transform-origin: top;
-}
+.page-enter { animation: fade-in-up 0.3s ease-out; }
+.panel-enter { animation: expand-down 0.18s ease-out; transform-origin: top; }
+.pop-enter { animation: pop-in 0.2s ease-out; }
 
+/* ===== بطاقات بشكل أحدث: حواف أوسع وظل ملوّن بدل الرمادي الجاف ===== */
 .card {
   background: white;
   border: 1px solid var(--color-border-soft);
-  border-radius: 0.75rem;
-  box-shadow: 0 1px 2px rgba(16, 29, 64, 0.04);
-  transition: box-shadow 0.2s ease;
+  border-radius: 1.1rem;
+  box-shadow: 0 1px 3px rgba(16, 29, 64, 0.05), 0 1px 2px rgba(16, 29, 64, 0.04);
+  transition: box-shadow 0.25s ease, transform 0.25s ease;
 }
 
 .card:hover {
-  box-shadow: 0 4px 14px rgba(16, 29, 64, 0.08);
+  box-shadow: 0 12px 28px -8px rgba(16, 29, 64, 0.16);
+}
+
+/* ===== زرار أساسي بتدرج بدل اللون الواحد المسطح ===== */
+.btn-primary {
+  background: linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-dark) 100%);
+  box-shadow: 0 4px 14px -4px rgba(240, 147, 15, 0.45);
+}
+.btn-primary:hover {
+  box-shadow: 0 6px 20px -4px rgba(240, 147, 15, 0.55);
+  filter: brightness(1.04);
+}
+.btn-primary:active {
+  transform: scale(0.97);
+}
+
+/* هيدر زجاجي شفاف خفيف */
+.glass-header {
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+/* خلفية متدرجة هادئة تُستخدم خلف صفحة الدخول */
+.hero-gradient {
+  background:
+    radial-gradient(circle at 15% 20%, rgba(240, 147, 15, 0.18), transparent 45%),
+    radial-gradient(circle at 85% 80%, rgba(36, 57, 122, 0.5), transparent 50%),
+    linear-gradient(160deg, var(--color-navy-950) 0%, var(--color-navy-900) 55%, var(--color-navy-800) 100%);
 }
 
 /* منع أي تراكب أفقي في الجداول على الشاشات الصغيرة */
@@ -77,19 +96,14 @@ h1, h2, h3, .font-display {
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
 }
-
 .table-scroll table {
   min-width: 640px;
 }
 
 /* ===== طباعة الفاتورة ===== */
 @media print {
-  body * {
-    visibility: hidden;
-  }
-  .print-area, .print-area * {
-    visibility: visible;
-  }
+  body * { visibility: hidden; }
+  .print-area, .print-area * { visibility: visible; }
   .print-area {
     position: absolute;
     top: 0;
@@ -97,7 +111,5 @@ h1, h2, h3, .font-display {
     width: 100%;
     padding: 16px;
   }
-  .no-print {
-    display: none !important;
-  }
+  .no-print { display: none !important; }
 }

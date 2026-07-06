@@ -86,19 +86,19 @@ export default function ProductUnitsPanel({ productId }: { productId: string }) 
   }
 
   return (
-    <div className="bg-surface border-t-2 border-accent/30 p-4 pr-8">
+    <div className="bg-surface border-t-2 border-accent/30 p-4 sm:pr-8">
       <p className="text-xs text-slate-500 mb-3">
         الوحدة الأساسية دايمًا "قطعة". هنا تضيف وحدات إضافية زي علبة أو كرتونة، وتحدد كام قطعة أساسية بتساوي.
       </p>
 
-      <form onSubmit={handleSubmit} className="flex flex-wrap gap-2 mb-3">
+      <form onSubmit={handleSubmit} className="grid grid-cols-1 sm:grid-cols-4 gap-2 mb-3">
         <input
           name="unit_name"
           value={form.unit_name}
           onChange={handleChange}
           placeholder="اسم الوحدة (علبة)"
           required
-          className="flex-1 min-w-30 border border-border-soft rounded-lg px-2 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-accent transition-shadow"
+          className="border border-border-soft rounded-xl px-2 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-accent transition-shadow"
         />
         <input
           name="conversion_factor"
@@ -108,19 +108,19 @@ export default function ProductUnitsPanel({ productId }: { productId: string }) 
           type="number"
           step="0.01"
           required
-          className="w-28 border border-border-soft rounded-lg px-2 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-accent transition-shadow"
+          className="border border-border-soft rounded-xl px-2 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-accent transition-shadow"
         />
         <input
           name="barcode"
           value={form.barcode}
           onChange={handleChange}
           placeholder="باركود الوحدة (اختياري)"
-          className="flex-1 min-w-35 border border-border-soft rounded-lg px-2 py-1.5 text-sm font-mono-data bg-white focus:outline-none focus:ring-2 focus:ring-accent transition-shadow"
+          className="border border-border-soft rounded-xl px-2 py-1.5 text-sm font-mono-data bg-white focus:outline-none focus:ring-2 focus:ring-accent transition-shadow"
         />
         <button
           type="submit"
           disabled={saving}
-          className="flex items-center gap-1.5 bg-accent text-white rounded-lg px-4 text-sm font-medium hover:bg-accent-dark active:scale-[0.98] transition-all disabled:opacity-70"
+          className="btn-primary flex items-center justify-center gap-1.5 text-white rounded-xl px-4 text-sm font-medium transition-all disabled:opacity-70 py-1.5 sm:py-0"
         >
           {saving && <Loader2 size={14} className="animate-spin" />}
           إضافة
@@ -137,25 +137,27 @@ export default function ProductUnitsPanel({ productId }: { productId: string }) 
       ) : units.length === 0 ? (
         <p className="text-sm text-slate-500">لا توجد وحدات إضافية بعد.</p>
       ) : (
-        <table className="w-full text-sm bg-white rounded-lg overflow-hidden border border-border-soft">
-          <tbody>
-            {units.map((u) => (
-              <tr key={u.id} className="border-t border-border-soft first:border-t-0 hover:bg-surface transition-colors">
-                <td className="py-2 px-3">{u.unit_name}</td>
-                <td className="py-2 px-3 font-mono-data">{u.conversion_factor} قطعة</td>
-                <td className="py-2 px-3 font-mono-data text-slate-500">{u.barcode ?? '-'}</td>
-                <td className="py-2 px-3 text-left">
-                  <button
-                    onClick={() => handleDelete(u.id)}
-                    className="text-red-600 hover:underline"
-                  >
-                    حذف
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <div className="table-scroll">
+          <table className="w-full text-sm bg-white rounded-xl overflow-hidden border border-border-soft">
+            <tbody>
+              {units.map((u) => (
+                <tr key={u.id} className="border-t border-border-soft first:border-t-0 hover:bg-surface transition-colors">
+                  <td className="py-2 px-3 whitespace-nowrap">{u.unit_name}</td>
+                  <td className="py-2 px-3 font-mono-data whitespace-nowrap">{u.conversion_factor} قطعة</td>
+                  <td className="py-2 px-3 font-mono-data text-slate-500 whitespace-nowrap">{u.barcode ?? '-'}</td>
+                  <td className="py-2 px-3 text-left whitespace-nowrap">
+                    <button
+                      onClick={() => handleDelete(u.id)}
+                      className="text-red-600 hover:underline"
+                    >
+                      حذف
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
     </div>
   )

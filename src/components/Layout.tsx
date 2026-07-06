@@ -1,7 +1,8 @@
+import { useState } from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
 import {
   LayoutDashboard, Package, Tags, Users, Truck, ShoppingCart,
-  ShoppingBag, Warehouse, FileText, LogOut, Wrench,
+  ShoppingBag, Warehouse, FileText, LogOut, Wrench, Menu, X,
 } from 'lucide-react'
 import { supabase } from '../lib/supabaseClient'
 import NotificationBell from './NotificationBell'
@@ -20,49 +21,94 @@ const links = [
 ]
 
 export default function Layout() {
+  const [mobileOpen, setMobileOpen] = useState(false)
+
   const handleLogout = async () => {
     await supabase.auth.signOut()
   }
 
+  const NavItems = () => (
+    <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
+      {links.map(({ to, label, icon: Icon }) => (
+        <NavLink
+          key={to}
+          to={to}
+          onClick={() => setMobileOpen(false)}
+          className={({ isActive }) =>
+            `flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-150 border-r-2 ${
+              isActive
+                ? 'bg-white/10 border-accent text-white'
+                : 'border-transparent text-white/70 hover:bg-white/5 hover:text-white hover:translate-x-0.5'
+            }`
+          }
+        >
+          <Icon size={18} />
+          {label}
+        </NavLink>
+      ))}
+    </nav>
+  )
+
   return (
     <div className="flex min-h-screen bg-surface">
-      <aside className="w-64 flex flex-col bg-gradient-to-b from-navy-900 to-navy-950 text-white sticky top-0 h-screen">
+      {/* القائمة الجانبية — ثابتة على الشاشات الكبيرة */}
+      <aside className="hidden md:flex w-64 flex-col bg-gradient-to-b from-navy-900 to-navy-950 text-white sticky top-0 h-screen">
         <div className="flex items-center gap-2 p-5 border-b border-white/10">
           <Wrench className="text-accent" size={22} />
           <span className="font-display font-extrabold text-lg">نظام المخزن</span>
         </div>
-
-        <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
-          {links.map(({ to, label, icon: Icon }) => (
-            <NavLink
-              key={to}
-              to={to}
-              className={({ isActive }) =>
-                `flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-150 border-r-2 ${
-                  isActive
-                    ? 'bg-white/10 border-accent text-white'
-                    : 'border-transparent text-white/70 hover:bg-white/5 hover:text-white hover:translate-x-0.5'
-                }`
-              }
-            >
-              <Icon size={18} />
-              {label}
-            </NavLink>
-          ))}
-        </nav>
-
+        <NavItems />
         <button
           onClick={handleLogout}
-          className="m-3 flex items-center justify-center gap-2 rounded-lg border border-white/15 py-2.5 text-sm text-white/80 hover:bg-white/5 hover:text-white transition-colors"
+          className="m-3 flex items-center justify-center gap-2 rounded-xl border border-white/15 py-2.5 text-sm text-white/80 hover:bg-white/5 hover:text-white transition-colors"
         >
           <LogOut size={16} />
           تسجيل الخروج
         </button>
       </aside>
 
+      {/* قائمة منسدلة (Drawer) على الموبايل */}
+      {mobileOpen && (
+        <div className="md:hidden fixed inset-0 z-50 flex">
+          <div
+            className="absolute inset-0 bg-black/40 pop-enter"
+            onClick={() => setMobileOpen(false)}
+          />
+          <aside className="relative w-72 max-w-[80vw] flex flex-col bg-gradient-to-b from-navy-900 to-navy-950 text-white h-full page-enter">
+            <div className="flex items-center justify-between gap-2 p-5 border-b border-white/10">
+              <div className="flex items-center gap-2">
+                <Wrench className="text-accent" size={22} />
+                <span className="font-display font-extrabold text-lg">نظام المخزن</span>
+              </div>
+              <button onClick={() => setMobileOpen(false)} className="text-white/70">
+                <X size={20} />
+              </button>
+            </div>
+            <NavItems />
+            <button
+              onClick={handleLogout}
+              className="m-3 flex items-center justify-center gap-2 rounded-xl border border-white/15 py-2.5 text-sm text-white/80 hover:bg-white/5 hover:text-white transition-colors"
+            >
+              <LogOut size={16} />
+              تسجيل الخروج
+            </button>
+          </aside>
+        </div>
+      )}
+
       <div className="flex-1 min-w-0 flex flex-col">
-        <header className="no-print flex items-center justify-between gap-4 bg-white border-b border-border-soft px-6 py-3 sticky top-0 z-40">
-          <GlobalSearch />
+        <header className="no-print glass-header flex items-center justify-between gap-2 md:gap-4 border-b border-border-soft px-4 md:px-6 py-3 sticky top-0 z-40">
+          <button
+            onClick={() => setMobileOpen(true)}
+            className="md:hidden flex items-center justify-center w-9 h-9 rounded-lg hover:bg-surface transition-colors text-navy-900"
+          >
+            <Menu size={20} />
+          </button>
+
+          <div className="flex-1 min-w-0">
+            <GlobalSearch />
+          </div>
+
           <NotificationBell />
         </header>
 

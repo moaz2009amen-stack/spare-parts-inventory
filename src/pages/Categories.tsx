@@ -67,21 +67,21 @@ export default function Categories() {
   }
 
   return (
-    <div className="page-enter p-6 max-w-2xl mx-auto">
-      <h1 className="font-display text-2xl font-bold text-navy-900 mb-6">التصنيفات</h1>
+    <div className="page-enter p-4 md:p-6 max-w-2xl mx-auto">
+      <h1 className="font-display text-xl md:text-2xl font-bold text-navy-900 mb-5 md:mb-6">التصنيفات</h1>
 
-      <form onSubmit={handleSubmit} className="card p-6 mb-8 flex gap-3">
+      <form onSubmit={handleSubmit} className="card p-5 md:p-6 mb-6 md:mb-8 flex flex-col sm:flex-row gap-3">
         <input
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder="اسم التصنيف (مثلاً: فلاتر، إطارات، بواجي)"
           required
-          className="flex-1 border border-border-soft rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-accent transition-shadow"
+          className="flex-1 border border-border-soft rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-accent transition-shadow"
         />
         <button
           type="submit"
           disabled={saving}
-          className="flex items-center gap-2 bg-accent text-white rounded-lg px-5 font-medium hover:bg-accent-dark active:scale-[0.98] transition-all disabled:opacity-70"
+          className="btn-primary flex items-center justify-center gap-2 text-white rounded-xl px-5 py-2.5 sm:py-0 font-medium transition-all disabled:opacity-70"
         >
           {saving && <Loader2 size={16} className="animate-spin" />}
           {saving ? 'جاري الإضافة...' : 'إضافة'}

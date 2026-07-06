@@ -105,12 +105,12 @@ export default function Products() {
     categories.find((c) => c.id === id)?.name ?? '-'
 
   return (
-    <div className="page-enter p-6 max-w-5xl mx-auto">
-      <h1 className="font-display text-2xl font-bold text-navy-900 mb-6">إدارة الأصناف</h1>
+    <div className="page-enter p-4 md:p-6 max-w-5xl mx-auto">
+      <h1 className="font-display text-xl md:text-2xl font-bold text-navy-900 mb-5 md:mb-6">إدارة الأصناف</h1>
 
       <form
         onSubmit={handleSubmit}
-        className="card p-6 mb-8 grid grid-cols-2 gap-4"
+        className="card p-5 md:p-6 mb-6 md:mb-8 grid grid-cols-1 sm:grid-cols-2 gap-4"
       >
         <input
           name="part_number"
@@ -118,14 +118,14 @@ export default function Products() {
           onChange={handleChange}
           placeholder="رقم القطعة"
           required
-          className="border border-border-soft rounded-lg px-3 py-2 font-mono-data focus:outline-none focus:ring-2 focus:ring-accent transition-shadow"
+          className="border border-border-soft rounded-xl px-3 py-2.5 font-mono-data focus:outline-none focus:ring-2 focus:ring-accent transition-shadow"
         />
         <input
           name="barcode"
           value={form.barcode}
           onChange={handleChange}
           placeholder="الباركود (اختياري)"
-          className="border border-border-soft rounded-lg px-3 py-2 font-mono-data focus:outline-none focus:ring-2 focus:ring-accent transition-shadow"
+          className="border border-border-soft rounded-xl px-3 py-2.5 font-mono-data focus:outline-none focus:ring-2 focus:ring-accent transition-shadow"
         />
         <input
           name="name"
@@ -133,13 +133,13 @@ export default function Products() {
           onChange={handleChange}
           placeholder="اسم الصنف"
           required
-          className="border border-border-soft rounded-lg px-3 py-2 col-span-2 focus:outline-none focus:ring-2 focus:ring-accent transition-shadow"
+          className="border border-border-soft rounded-xl px-3 py-2.5 sm:col-span-2 focus:outline-none focus:ring-2 focus:ring-accent transition-shadow"
         />
         <select
           name="category_id"
           value={form.category_id}
           onChange={handleChange}
-          className="border border-border-soft rounded-lg px-3 py-2 col-span-2 focus:outline-none focus:ring-2 focus:ring-accent transition-shadow"
+          className="border border-border-soft rounded-xl px-3 py-2.5 sm:col-span-2 focus:outline-none focus:ring-2 focus:ring-accent transition-shadow"
         >
           <option value="">بدون تصنيف</option>
           {categories.map((c) => (
@@ -153,7 +153,7 @@ export default function Products() {
           placeholder="سعر التكلفة"
           type="number"
           step="0.01"
-          className="border border-border-soft rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-accent transition-shadow"
+          className="border border-border-soft rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-accent transition-shadow"
         />
         <input
           name="sale_price"
@@ -162,7 +162,7 @@ export default function Products() {
           placeholder="سعر البيع"
           type="number"
           step="0.01"
-          className="border border-border-soft rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-accent transition-shadow"
+          className="border border-border-soft rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-accent transition-shadow"
         />
         <input
           name="min_stock_alert"
@@ -170,15 +170,15 @@ export default function Products() {
           onChange={handleChange}
           placeholder="حد التنبيه الأدنى"
           type="number"
-          className="border border-border-soft rounded-lg px-3 py-2 col-span-2 focus:outline-none focus:ring-2 focus:ring-accent transition-shadow"
+          className="border border-border-soft rounded-xl px-3 py-2.5 sm:col-span-2 focus:outline-none focus:ring-2 focus:ring-accent transition-shadow"
         />
 
-        {error && <p className="text-red-600 text-sm col-span-2">{error}</p>}
+        {error && <p className="text-red-600 text-sm sm:col-span-2">{error}</p>}
 
         <button
           type="submit"
           disabled={saving}
-          className="col-span-2 flex items-center justify-center gap-2 bg-accent text-white rounded-lg py-2.5 font-medium hover:bg-accent-dark active:scale-[0.98] transition-all disabled:opacity-70"
+          className="btn-primary sm:col-span-2 flex items-center justify-center gap-2 text-white rounded-xl py-2.5 font-medium transition-all disabled:opacity-70"
         >
           {saving && <Loader2 size={16} className="animate-spin" />}
           {saving ? 'جاري الحفظ...' : 'إضافة الصنف'}
