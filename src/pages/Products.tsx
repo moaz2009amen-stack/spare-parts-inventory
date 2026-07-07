@@ -1,11 +1,29 @@
 import { useEffect, useState } from 'react'
 import { ChevronDown, ChevronUp, Loader2 } from 'lucide-react'
 import { supabase } from '../lib/supabaseClient'
+import { loadDraft, saveDraft, clearDraft } from '../lib/draft'
 import type { Database } from '../lib/database.types'
 import ProductUnitsPanel from '../components/ProductUnitsPanel'
 
 type Product = Database['public']['Tables']['products']['Row']
 type Category = Database['public']['Tables']['categories']['Row']
+
+interface ProductForm {
+  part_number: string
+  barcode: string
+  name: string
+  category_id: string
+  base_unit: string
+  cost_price: string
+  sale_price: string
+  min_stock_alert: string
+}
+
+const DRAFT_KEY = 'new-product'
+const emptyForm: ProductForm = {
+  part_number: '', barcode: '', name: '', category_id: '',
+  base_unit: 'قطعة', cost_price: '', sale_price: '', min_stock_alert: '',
+}
 
 export default function Products() {
   const [products, setProducts] = useState<Product[]>([])
@@ -15,16 +33,11 @@ export default function Products() {
   const [saving, setSaving] = useState(false)
   const [expandedId, setExpandedId] = useState<string | null>(null)
 
-  const [form, setForm] = useState({
-    part_number: '',
-    barcode: '',
-    name: '',
-    category_id: '',
-    base_unit: 'قطعة',
-    cost_price: '',
-    sale_price: '',
-    min_stock_alert: '',
-  })
+  const [form, setForm] = useState<ProductForm>(() => loadDraft(DRAFT_KEY, emptyForm))
+
+  useEffect(() => {
+    saveDraft(DRAFT_KEY, form)
+  }, [form])
 
   const loadProducts = async () => {
     const { data, error } = await supabase
@@ -85,16 +98,8 @@ export default function Products() {
           : error.message
       )
     } else {
-      setForm({
-        part_number: '',
-        barcode: '',
-        name: '',
-        category_id: '',
-        base_unit: 'قطعة',
-        cost_price: '',
-        sale_price: '',
-        min_stock_alert: '',
-      })
+      setForm(emptyForm)
+      clearDraft(DRAFT_KEY)
       setLoading(true)
       await loadProducts()
     }

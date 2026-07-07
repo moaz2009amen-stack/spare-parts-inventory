@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Loader2, Trash2, Plus } from 'lucide-react'
 import { supabase } from '../lib/supabaseClient'
+import { loadDraft, saveDraft, clearDraft } from '../lib/draft'
 import type { Database } from '../lib/database.types'
 import InvoicePrint, { type InvoicePrintData } from '../components/InvoicePrint'
 
@@ -18,6 +19,18 @@ interface CartItem {
   unit_cost: number
 }
 
+interface PurchaseDraft {
+  warehouseId: string
+  supplierId: string
+  paidAmount: string
+  cart: CartItem[]
+}
+
+const DRAFT_KEY = 'purchase-invoice'
+const draft = loadDraft<PurchaseDraft>(DRAFT_KEY, {
+  warehouseId: '', supplierId: '', paidAmount: '', cart: [],
+})
+
 export default function Purchases() {
   const [products, setProducts] = useState<Product[]>([])
   const [units, setUnits] = useState<ProductUnit[]>([])
@@ -28,10 +41,10 @@ export default function Purchases() {
   const [saving, setSaving] = useState(false)
   const [invoice, setInvoice] = useState<InvoicePrintData | null>(null)
 
-  const [warehouseId, setWarehouseId] = useState('')
-  const [supplierId, setSupplierId] = useState('')
-  const [paidAmount, setPaidAmount] = useState('')
-  const [cart, setCart] = useState<CartItem[]>([])
+  const [warehouseId, setWarehouseId] = useState(draft.warehouseId)
+  const [supplierId, setSupplierId] = useState(draft.supplierId)
+  const [paidAmount, setPaidAmount] = useState(draft.paidAmount)
+  const [cart, setCart] = useState<CartItem[]>(draft.cart)
 
   const [picker, setPicker] = useState({
     product_id: '',
@@ -39,6 +52,10 @@ export default function Purchases() {
     quantity: '1',
     unit_cost: '',
   })
+
+  useEffect(() => {
+    saveDraft<PurchaseDraft>(DRAFT_KEY, { warehouseId, supplierId, paidAmount, cart })
+  }, [warehouseId, supplierId, paidAmount, cart])
 
   useEffect(() => {
     let cancelled = false
@@ -55,7 +72,7 @@ export default function Purchases() {
       if (s.data) setSuppliers(s.data)
       if (w.data) {
         setWarehouses(w.data)
-        if (w.data.length > 0) setWarehouseId(w.data[0].id)
+        if (w.data.length > 0 && !warehouseId) setWarehouseId(w.data[0].id)
       }
       setLoading(false)
     })
@@ -63,6 +80,7 @@ export default function Purchases() {
     return () => {
       cancelled = true
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const selectedProduct = products.find((p) => p.id === picker.product_id)
@@ -114,6 +132,7 @@ export default function Purchases() {
     setPaidAmount('')
     setSupplierId('')
     setError('')
+    clearDraft(DRAFT_KEY)
   }
 
   const handleSubmit = async () => {
@@ -176,6 +195,7 @@ export default function Purchases() {
       paid,
     })
 
+    clearDraft(DRAFT_KEY)
     setSaving(false)
   }
 
@@ -201,7 +221,14 @@ export default function Purchases() {
 
   return (
     <div className="page-enter p-4 md:p-6 max-w-4xl mx-auto">
-      <h1 className="font-display text-xl md:text-2xl font-bold text-navy-900 mb-5 md:mb-6">فاتورة شراء جديدة</h1>
+      <div className="flex items-center justify-between mb-5 md:mb-6">
+        <h1 className="font-display text-xl md:text-2xl font-bold text-navy-900">فاتورة شراء جديدة</h1>
+        {cart.length > 0 && (
+          <span className="text-xs bg-accent/10 text-accent-dark px-2.5 py-1 rounded-full font-medium">
+            مسودة محفوظة تلقائيًا
+          </span>
+        )}
+      </div>
 
       <div className="card p-5 md:p-6 mb-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
         <select

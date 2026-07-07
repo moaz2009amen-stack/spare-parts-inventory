@@ -8,6 +8,7 @@ import Products from './pages/Products'
 import Categories from './pages/Categories'
 import Customers from './pages/Customers'
 import Suppliers from './pages/Suppliers'
+import Statement from './pages/Statement'
 import Sales from './pages/Sales'
 import Purchases from './pages/Purchases'
 import InvoicesList from './pages/InvoicesList'
@@ -29,6 +30,7 @@ function AppContent() {
           <Route path="/categories" element={<Categories />} />
           <Route path="/customers" element={<Customers />} />
           <Route path="/suppliers" element={<Suppliers />} />
+          <Route path="/statement/:type/:id" element={<Statement />} />
           <Route path="/sales" element={<Sales />} />
           <Route path="/purchases" element={<Purchases />} />
           <Route path="/invoices" element={<InvoicesList />} />

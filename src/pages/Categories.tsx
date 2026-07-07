@@ -1,16 +1,23 @@
 import { useEffect, useState } from 'react'
 import { Loader2 } from 'lucide-react'
 import { supabase } from '../lib/supabaseClient'
+import { loadDraft, saveDraft, clearDraft } from '../lib/draft'
 import type { Database } from '../lib/database.types'
 
 type Category = Database['public']['Tables']['categories']['Row']
+
+const DRAFT_KEY = 'new-category'
 
 export default function Categories() {
   const [categories, setCategories] = useState<Category[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
-  const [name, setName] = useState('')
+  const [name, setName] = useState(() => loadDraft(DRAFT_KEY, ''))
+
+  useEffect(() => {
+    saveDraft(DRAFT_KEY, name)
+  }, [name])
 
   const loadCategories = async () => {
     const { data, error } = await supabase
@@ -53,6 +60,7 @@ export default function Categories() {
       setError(error.message)
     } else {
       setName('')
+      clearDraft(DRAFT_KEY)
       setLoading(true)
       await loadCategories()
     }

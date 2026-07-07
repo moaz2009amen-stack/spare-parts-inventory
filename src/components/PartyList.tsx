@@ -1,10 +1,18 @@
 import { useEffect, useState } from 'react'
-import { Loader2 } from 'lucide-react'
+import { Loader2, FileText } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabaseClient'
+import { loadDraft, saveDraft, clearDraft } from '../lib/draft'
 import type { Database } from '../lib/database.types'
 
 type TableName = 'customers' | 'suppliers'
 type Party = Database['public']['Tables']['customers']['Row']
+
+interface PartyForm {
+  name: string
+  phone: string
+  address: string
+}
 
 interface PartyListProps {
   tableName: TableName
@@ -12,17 +20,21 @@ interface PartyListProps {
   balanceLabel: string
 }
 
+const emptyForm: PartyForm = { name: '', phone: '', address: '' }
+
 export default function PartyList({ tableName, title, balanceLabel }: PartyListProps) {
+  const navigate = useNavigate()
+  const draftKey = `new-${tableName}`
+
   const [items, setItems] = useState<Party[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
+  const [form, setForm] = useState<PartyForm>(() => loadDraft(draftKey, emptyForm))
 
-  const [form, setForm] = useState({
-    name: '',
-    phone: '',
-    address: '',
-  })
+  useEffect(() => {
+    saveDraft(draftKey, form)
+  }, [form, draftKey])
 
   const loadItems = async () => {
     const { data, error } = await supabase
@@ -73,7 +85,8 @@ export default function PartyList({ tableName, title, balanceLabel }: PartyListP
     if (error) {
       setError(error.message)
     } else {
-      setForm({ name: '', phone: '', address: '' })
+      setForm(emptyForm)
+      clearDraft(draftKey)
       setLoading(true)
       await loadItems()
     }
@@ -92,6 +105,8 @@ export default function PartyList({ tableName, title, balanceLabel }: PartyListP
     if (balance < 0) return 'text-emerald-600'
     return 'text-slate-500'
   }
+
+  const partyType = tableName === 'customers' ? 'customer' : 'supplier'
 
   return (
     <div className="page-enter p-4 md:p-6 max-w-4xl mx-auto">
@@ -166,13 +181,22 @@ export default function PartyList({ tableName, title, balanceLabel }: PartyListP
                     <td className={`p-3 font-mono-data whitespace-nowrap font-medium ${balanceColor(item.balance)}`}>
                       {item.balance}
                     </td>
-                    <td className="p-3 text-left">
-                      <button
-                        onClick={() => handleDelete(item.id)}
-                        className="text-sm text-red-600 hover:underline"
-                      >
-                        حذف
-                      </button>
+                    <td className="p-3 text-left whitespace-nowrap">
+                      <div className="flex items-center justify-end gap-3">
+                        <button
+                          onClick={() => navigate(`/statement/${partyType}/${item.id}`)}
+                          className="flex items-center gap-1 text-sm text-accent-dark hover:underline"
+                        >
+                          <FileText size={14} />
+                          كشف حساب
+                        </button>
+                        <button
+                          onClick={() => handleDelete(item.id)}
+                          className="text-sm text-red-600 hover:underline"
+                        >
+                          حذف
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))
