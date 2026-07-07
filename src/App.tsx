@@ -13,6 +13,7 @@ import Sales from './pages/Sales'
 import Purchases from './pages/Purchases'
 import InvoicesList from './pages/InvoicesList'
 import Inventory from './pages/Inventory'
+import Stocktake from './pages/Stocktake'
 
 function AppContent() {
   const { session, loading } = useAuth()
@@ -35,6 +36,7 @@ function AppContent() {
           <Route path="/purchases" element={<Purchases />} />
           <Route path="/invoices" element={<InvoicesList />} />
           <Route path="/inventory" element={<Inventory />} />
+          <Route path="/stocktake" element={<Stocktake />} />
         </Route>
       </Routes>
     </BrowserRouter>

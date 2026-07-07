@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
-import { Loader2, AlertTriangle } from 'lucide-react'
+import { Loader2, AlertTriangle, FileSpreadsheet } from 'lucide-react'
 import { supabase } from '../lib/supabaseClient'
+import { exportToExcel } from '../lib/exportExcel'
 import type { Database } from '../lib/database.types'
 
 type Inventory = Database['public']['Tables']['inventory']['Row']
@@ -68,21 +69,44 @@ export default function Inventory() {
   const displayedRows = showLowOnly ? rows.filter((r) => r.isLow) : rows
   const lowCount = rows.filter((r) => r.isLow).length
 
+  const handleExport = () => {
+    exportToExcel(
+      'المخزون-الحالي',
+      'المخزون',
+      displayedRows.map((r) => ({
+        'رقم القطعة': r.partNumber,
+        'الصنف': r.productName,
+        'المخزن': r.warehouseName,
+        'الكمية الحالية': r.quantity,
+        'حد التنبيه': r.minStockAlert,
+      }))
+    )
+  }
+
   return (
     <div className="page-enter p-4 md:p-6 max-w-5xl mx-auto">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5 md:mb-6">
         <h1 className="font-display text-xl md:text-2xl font-bold text-navy-900">المخزون الحالي</h1>
-        <button
-          onClick={() => setShowLowOnly(!showLowOnly)}
-          className={`flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-colors ${
-            showLowOnly
-              ? 'bg-red-600 text-white'
-              : 'bg-white border border-border-soft text-slate-600 hover:bg-surface'
-          }`}
-        >
-          <AlertTriangle size={16} />
-          {showLowOnly ? `عرض الكل` : `الأصناف الناقصة (${lowCount})`}
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={handleExport}
+            className="flex items-center gap-2 bg-emerald-600 text-white rounded-xl px-3 md:px-4 py-2 text-sm font-medium hover:bg-emerald-700 transition-colors"
+          >
+            <FileSpreadsheet size={16} />
+            <span className="hidden sm:inline">تصدير Excel</span>
+          </button>
+          <button
+            onClick={() => setShowLowOnly(!showLowOnly)}
+            className={`flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-colors ${
+              showLowOnly
+                ? 'bg-red-600 text-white'
+                : 'bg-white border border-border-soft text-slate-600 hover:bg-surface'
+            }`}
+          >
+            <AlertTriangle size={16} />
+            {showLowOnly ? `عرض الكل` : `الأصناف الناقصة (${lowCount})`}
+          </button>
+        </div>
       </div>
 
       <div className="card overflow-hidden">

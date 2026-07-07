@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
 import {
   LayoutDashboard, Package, Tags, Users, Truck, ShoppingCart,
-  ShoppingBag, Warehouse, FileText, LogOut, Wrench, Menu, X,
+  ShoppingBag, Warehouse, FileText, ClipboardList, LogOut, Wrench, Menu, X,
 } from 'lucide-react'
 import { supabase } from '../lib/supabaseClient'
 import NotificationBell from './NotificationBell'
@@ -18,6 +18,7 @@ const links = [
   { to: '/purchases', label: 'فاتورة شراء', icon: ShoppingBag },
   { to: '/invoices', label: 'كل الفواتير', icon: FileText },
   { to: '/inventory', label: 'المخزون', icon: Warehouse },
+  { to: '/stocktake', label: 'الجرد', icon: ClipboardList },
 ]
 
 export default function Layout() {
@@ -51,8 +52,7 @@ export default function Layout() {
 
   return (
     <div className="flex min-h-screen bg-surface">
-      {/* القائمة الجانبية — ثابتة على الشاشات الكبيرة */}
-      <aside className="hidden md:flex w-64 flex-col bg-gradient-to-b from-navy-900 to-navy-950 text-white sticky top-0 h-screen">
+      <aside className="hidden md:flex w-64 flex-col bg-linear-to-b from-navy-900 to-navy-950 text-white sticky top-0 h-screen">
         <div className="flex items-center gap-2 p-5 border-b border-white/10">
           <Wrench className="text-accent" size={22} />
           <span className="font-display font-extrabold text-lg">نظام المخزن</span>
@@ -67,14 +67,13 @@ export default function Layout() {
         </button>
       </aside>
 
-      {/* قائمة منسدلة (Drawer) على الموبايل */}
       {mobileOpen && (
         <div className="md:hidden fixed inset-0 z-50 flex">
           <div
             className="absolute inset-0 bg-black/40 pop-enter"
             onClick={() => setMobileOpen(false)}
           />
-          <aside className="relative w-72 max-w-[80vw] flex flex-col bg-gradient-to-b from-navy-900 to-navy-950 text-white h-full page-enter">
+          <aside className="relative w-72 max-w-[80vw] flex flex-col bg-linear-to-b from-navy-900 to-navy-950 text-white h-full page-enter">
             <div className="flex items-center justify-between gap-2 p-5 border-b border-white/10">
               <div className="flex items-center gap-2">
                 <Wrench className="text-accent" size={22} />

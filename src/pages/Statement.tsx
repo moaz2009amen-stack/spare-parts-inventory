@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { Loader2, ArrowRight, Wallet } from 'lucide-react'
+import { Loader2, ArrowRight, Wallet, FileSpreadsheet } from 'lucide-react'
 import { supabase } from '../lib/supabaseClient'
+import { exportToExcel } from '../lib/exportExcel'
 import type { Database } from '../lib/database.types'
 
 type Customer = Database['public']['Tables']['customers']['Row']
@@ -121,15 +122,39 @@ export default function Statement() {
 
   let runningBalance = 0
 
+  const handleExport = () => {
+    let balance = 0
+    const exportRows = rows.map((row) => {
+      balance += row.debit - row.credit
+      return {
+        'التاريخ': new Date(row.date).toLocaleDateString('ar-EG'),
+        'البيان': row.label,
+        'مدين (عليه)': row.debit || '',
+        'دائن (له)': row.credit || '',
+        'الرصيد بعدها': balance,
+      }
+    })
+    exportToExcel(`كشف-حساب-${party.name}`, 'كشف الحساب', exportRows)
+  }
+
   return (
     <div className="page-enter p-4 md:p-6 max-w-4xl mx-auto">
-      <button
-        onClick={() => navigate(isCustomer ? '/customers' : '/suppliers')}
-        className="flex items-center gap-1 text-sm text-accent-dark hover:underline mb-4"
-      >
-        <ArrowRight size={14} />
-        رجوع لـ{isCustomer ? 'العملاء' : 'الموردين'}
-      </button>
+      <div className="flex items-center justify-between mb-4">
+        <button
+          onClick={() => navigate(isCustomer ? '/customers' : '/suppliers')}
+          className="flex items-center gap-1 text-sm text-accent-dark hover:underline"
+        >
+          <ArrowRight size={14} />
+          رجوع لـ{isCustomer ? 'العملاء' : 'الموردين'}
+        </button>
+        <button
+          onClick={handleExport}
+          className="flex items-center gap-2 bg-emerald-600 text-white rounded-xl px-3 py-2 text-sm font-medium hover:bg-emerald-700 transition-colors"
+        >
+          <FileSpreadsheet size={16} />
+          <span className="hidden sm:inline">تصدير Excel</span>
+        </button>
+      </div>
 
       <div className="card p-5 md:p-6 mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
