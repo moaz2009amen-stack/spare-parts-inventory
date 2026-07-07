@@ -28,18 +28,19 @@ export default function Statement() {
 
   const isCustomer = type === 'customer'
   const table = isCustomer ? 'customers' : 'suppliers'
-  const invoiceTable = isCustomer ? 'sales_invoices' : 'purchase_invoices'
-  const partyColumn = isCustomer ? 'customer_id' : 'supplier_id'
 
   const loadData = async () => {
     if (!id || !type) return
     setLoading(true)
 
-    const [partyRes, invoicesRes, paymentsRes] = await Promise.all([
+    const [partyRes, paymentsRes] = await Promise.all([
       supabase.from(table).select('*').eq('id', id).single(),
-      supabase.from(invoiceTable).select('*').eq(partyColumn, id),
       supabase.from('payments').select('*').eq('party_type', type).eq('party_id', id),
     ])
+
+    const invoicesRes = isCustomer
+      ? await supabase.from('sales_invoices').select('*').eq('customer_id', id)
+      : await supabase.from('purchase_invoices').select('*').eq('supplier_id', id)
 
     if (partyRes.data) setParty(partyRes.data)
 
@@ -73,6 +74,11 @@ export default function Statement() {
   const handleRecordPayment = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
+
+    if (!type || !id) {
+      setError('تعذر تحديد الحساب، حاول تفتح الصفحة تاني')
+      return
+    }
 
     const value = Number(amount)
     if (!value || value <= 0) {
