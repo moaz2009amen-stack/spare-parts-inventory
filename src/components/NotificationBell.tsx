@@ -7,14 +7,48 @@ type Notification = Database['public']['Tables']['notifications']['Row']
 
 const LAST_SEEN_KEY = 'notifications_last_seen'
 
+// صوت تنبيه بسيط بيتولّد بالكود نفسه (نغمتين قصيرتين)، من غير
+// الحاجة لملف صوت خارجي يزود حجم المشروع.
+function playNotificationSound() {
+  try {
+    const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext
+    const ctx = new AudioCtx()
+
+    const playTone = (freq: number, startTime: number, duration: number) => {
+      const oscillator = ctx.createOscillator()
+      const gain = ctx.createGain()
+      oscillator.type = 'sine'
+      oscillator.frequency.value = freq
+      gain.gain.setValueAtTime(0.001, ctx.currentTime + startTime)
+      gain.gain.exponentialRampToValueAtTime(0.15, ctx.currentTime + startTime + 0.02)
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + startTime + duration)
+      oscillator.connect(gain)
+      gain.connect(ctx.destination)
+      oscillator.start(ctx.currentTime + startTime)
+      oscillator.stop(ctx.currentTime + startTime + duration)
+    }
+
+    playTone(880, 0, 0.12)
+    playTone(1175, 0.12, 0.15)
+
+    setTimeout(() => ctx.close(), 500)
+  } catch {
+    // بعض المتصفحات بتمنع تشغيل الصوت قبل أول تفاعل من المستخدم، تجاهل بهدوء
+  }
+}
+
 export default function NotificationBell() {
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [open, setOpen] = useState(false)
   const [unreadCount, setUnreadCount] = useState(0)
   const menuRef = useRef<HTMLDivElement>(null)
+  const isFirstLoad = useRef(true)
 
   useEffect(() => {
     let cancelled = false
+
+    // تنظيف الإشعارات الأقدم من 3 أيام أول ما الجرس يفتح
+    supabase.rpc('cleanup_old_notifications').then(() => {})
 
     supabase
       .from('notifications')
@@ -35,6 +69,9 @@ export default function NotificationBell() {
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'notifications' },
         (payload) => {
+          if (!isFirstLoad.current) {
+            playNotificationSound()
+          }
           setNotifications((prev) => {
             const updated = [payload.new as Notification, ...prev].slice(0, 30)
             updateUnread(updated)
@@ -43,6 +80,8 @@ export default function NotificationBell() {
         }
       )
       .subscribe()
+
+    isFirstLoad.current = false
 
     return () => {
       cancelled = true
@@ -90,8 +129,9 @@ export default function NotificationBell() {
 
       {open && (
         <div className="pop-enter absolute left-0 mt-2 w-80 max-w-[85vw] bg-white rounded-xl shadow-lg border border-border-soft overflow-hidden z-50 text-slate-800">
-          <div className="p-3 border-b border-border-soft font-display font-bold text-navy-900">
-            الإشعارات
+          <div className="p-3 border-b border-border-soft font-display font-bold text-navy-900 flex items-center justify-between">
+            <span>الإشعارات</span>
+            <span className="text-xs font-normal text-slate-400">بتُحذف تلقائيًا بعد 3 أيام</span>
           </div>
           <div className="max-h-80 overflow-y-auto">
             {notifications.length === 0 ? (

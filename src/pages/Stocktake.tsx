@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react'
-import { Loader2, ClipboardCheck } from 'lucide-react'
+import { Loader2, ClipboardCheck, ChevronDown, ChevronUp } from 'lucide-react'
 import { supabase } from '../lib/supabaseClient'
 import type { Database } from '../lib/database.types'
 
 type Product = Database['public']['Tables']['products']['Row']
 type Warehouse = Database['public']['Tables']['warehouses']['Row']
+type StocktakeRow = Database['public']['Tables']['stocktakes']['Row']
+type StocktakeItemRow = Database['public']['Tables']['stocktake_items']['Row']
 
 interface CountRow {
   productId: string
@@ -15,6 +17,9 @@ interface CountRow {
 }
 
 export default function Stocktake() {
+  const [tab, setTab] = useState<'new' | 'history'>('new')
+
+  // ---------- جرد جديد ----------
   const [warehouses, setWarehouses] = useState<Warehouse[]>([])
   const [warehouseId, setWarehouseId] = useState('')
   const [rows, setRows] = useState<CountRow[]>([])
@@ -25,14 +30,28 @@ export default function Stocktake() {
   const [notes, setNotes] = useState('')
   const [onlyDifferences, setOnlyDifferences] = useState(false)
 
+  // ---------- سجل الجرد ----------
+  const [history, setHistory] = useState<StocktakeRow[]>([])
+  const [historyLoading, setHistoryLoading] = useState(true)
+  const [expandedId, setExpandedId] = useState<string | null>(null)
+  const [historyItems, setHistoryItems] = useState<StocktakeItemRow[]>([])
+  const [itemsLoading, setItemsLoading] = useState(false)
+  const [warehouseNames, setWarehouseNames] = useState<Record<string, string>>({})
+  const [productNames, setProductNames] = useState<Record<string, string>>({})
+
   useEffect(() => {
     let cancelled = false
     supabase.from('warehouses').select('*').order('created_at').then(({ data }) => {
       if (cancelled) return
       if (data) {
         setWarehouses(data)
+        setWarehouseNames(Object.fromEntries(data.map((w) => [w.id, w.name])))
         if (data.length > 0) setWarehouseId(data[0].id)
       }
+    })
+    supabase.from('products').select('id, name').then(({ data }) => {
+      if (cancelled) return
+      if (data) setProductNames(Object.fromEntries(data.map((p) => [p.id, p.name])))
     })
     return () => { cancelled = true }
   }, [])
@@ -61,6 +80,37 @@ export default function Stocktake() {
 
     return () => { cancelled = true }
   }, [warehouseId])
+
+  const loadHistory = () => {
+    setHistoryLoading(true)
+    supabase
+      .from('stocktakes')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .then(({ data }) => {
+        if (data) setHistory(data)
+        setHistoryLoading(false)
+      })
+  }
+
+  useEffect(() => {
+    if (tab === 'history') loadHistory()
+  }, [tab])
+
+  const toggleExpand = async (stocktakeId: string) => {
+    if (expandedId === stocktakeId) {
+      setExpandedId(null)
+      return
+    }
+    setExpandedId(stocktakeId)
+    setItemsLoading(true)
+    const { data } = await supabase
+      .from('stocktake_items')
+      .select('*')
+      .eq('stocktake_id', stocktakeId)
+    setHistoryItems(data ?? [])
+    setItemsLoading(false)
+  }
 
   const handleCountChange = (productId: string, value: string) => {
     setRows((prev) =>
@@ -108,110 +158,202 @@ export default function Stocktake() {
 
   return (
     <div className="page-enter p-4 md:p-6 max-w-5xl mx-auto">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5 md:mb-6">
-        <h1 className="font-display text-xl md:text-2xl font-bold text-navy-900">الجرد</h1>
-        <select
-          value={warehouseId}
-          onChange={(e) => setWarehouseId(e.target.value)}
-          className="border border-border-soft rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-accent"
-        >
-          {warehouses.map((w) => (
-            <option key={w.id} value={w.id}>{w.name}</option>
-          ))}
-        </select>
-      </div>
+      <h1 className="font-display text-xl md:text-2xl font-bold text-navy-900 mb-5 md:mb-6">الجرد</h1>
 
-      <div className="card p-4 md:p-5 mb-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <p className="text-sm text-slate-500">
-          اكتب الكمية الفعلية اللي شايفها في المخزن قدام كل صنف. أي صنف رقمه
-          مختلف عن المسجّل هيتلوّن بالبرتقالي، والنظام هيعدّل الكمية المسجّلة
-          تلقائيًا لما تضغط "تسجيل الجرد" — بس للأصناف اللي فيها فرق فعلي.
-        </p>
+      <div className="flex gap-2 mb-6">
         <button
-          onClick={() => setOnlyDifferences(!onlyDifferences)}
-          className={`shrink-0 px-4 py-2 rounded-xl text-sm font-medium transition-colors ${
-            onlyDifferences
-              ? 'bg-accent text-white'
-              : 'bg-white border border-border-soft text-slate-600 hover:bg-surface'
+          onClick={() => setTab('new')}
+          className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors ${
+            tab === 'new' ? 'bg-navy-900 text-white' : 'bg-white border border-border-soft text-slate-600'
           }`}
         >
-          {onlyDifferences ? 'عرض الكل' : `فيها فرق (${differencesCount})`}
+          جرد جديد
         </button>
-      </div>
-
-      <div className="card overflow-hidden mb-5">
-        <div className="table-scroll">
-          <table className="w-full text-right">
-            <thead className="bg-navy-900 text-white text-sm">
-              <tr>
-                <th className="p-3 whitespace-nowrap">رقم القطعة</th>
-                <th className="p-3 whitespace-nowrap">الصنف</th>
-                <th className="p-3 whitespace-nowrap">الكمية المسجّلة</th>
-                <th className="p-3 whitespace-nowrap">الكمية الفعلية (عدّها)</th>
-                <th className="p-3 whitespace-nowrap">الفرق</th>
-              </tr>
-            </thead>
-            <tbody>
-              {loading ? (
-                <tr><td colSpan={5} className="p-6 text-center text-slate-500">
-                  <div className="flex items-center justify-center gap-2"><Loader2 size={16} className="animate-spin" />جاري التحميل...</div>
-                </td></tr>
-              ) : displayedRows.length === 0 ? (
-                <tr><td colSpan={5} className="p-6 text-center text-slate-500">لا توجد أصناف لعرضها</td></tr>
-              ) : (
-                displayedRows.map((row) => {
-                  const diff = (Number(row.countedQty) || 0) - row.systemQty
-                  return (
-                    <tr
-                      key={row.productId}
-                      className={`border-t border-border-soft transition-colors ${diff !== 0 ? 'bg-accent/5' : 'hover:bg-surface'}`}
-                    >
-                      <td className="p-3 font-mono-data whitespace-nowrap">{row.partNumber}</td>
-                      <td className="p-3 whitespace-nowrap">{row.name}</td>
-                      <td className="p-3 font-mono-data whitespace-nowrap text-slate-500">{row.systemQty}</td>
-                      <td className="p-3 whitespace-nowrap">
-                        <input
-                          type="number"
-                          value={row.countedQty}
-                          onChange={(e) => handleCountChange(row.productId, e.target.value)}
-                          className="w-24 border border-border-soft rounded-lg px-2 py-1.5 font-mono-data focus:outline-none focus:ring-2 focus:ring-accent"
-                        />
-                      </td>
-                      <td className={`p-3 font-mono-data whitespace-nowrap font-bold ${
-                        diff > 0 ? 'text-emerald-600' : diff < 0 ? 'text-red-600' : 'text-slate-400'
-                      }`}>
-                        {diff > 0 ? `+${diff}` : diff}
-                      </td>
-                    </tr>
-                  )
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      <div className="card p-5 md:p-6">
-        <input
-          type="text"
-          placeholder="ملاحظة على عملية الجرد (اختياري)"
-          value={notes}
-          onChange={(e) => setNotes(e.target.value)}
-          className="w-full border border-border-soft rounded-xl px-3 py-2.5 mb-4 focus:outline-none focus:ring-2 focus:ring-accent"
-        />
-
-        {error && <p className="text-red-600 text-sm mb-3">{error}</p>}
-        {success && <p className="text-emerald-600 text-sm mb-3">{success}</p>}
-
         <button
-          onClick={handleSubmit}
-          disabled={saving || loading}
-          className="btn-primary w-full flex items-center justify-center gap-2 text-white rounded-xl py-2.5 font-medium transition-all disabled:opacity-70"
+          onClick={() => setTab('history')}
+          className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors ${
+            tab === 'history' ? 'bg-navy-900 text-white' : 'bg-white border border-border-soft text-slate-600'
+          }`}
         >
-          {saving ? <Loader2 size={16} className="animate-spin" /> : <ClipboardCheck size={16} />}
-          {saving ? 'جاري التسوية...' : 'تسجيل الجرد وتسوية الفروقات'}
+          سجل الجرد
         </button>
       </div>
+
+      {tab === 'new' ? (
+        <>
+          <div className="flex justify-end mb-4">
+            <select
+              value={warehouseId}
+              onChange={(e) => setWarehouseId(e.target.value)}
+              className="border border-border-soft rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-accent"
+            >
+              {warehouses.map((w) => (
+                <option key={w.id} value={w.id}>{w.name}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="card p-4 md:p-5 mb-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <p className="text-sm text-slate-500">
+              اكتب الكمية الفعلية اللي شايفها في المخزن قدام كل صنف. أي صنف رقمه
+              مختلف عن المسجّل هيتلوّن بالبرتقالي.
+            </p>
+            <button
+              onClick={() => setOnlyDifferences(!onlyDifferences)}
+              className={`shrink-0 px-4 py-2 rounded-xl text-sm font-medium transition-colors ${
+                onlyDifferences
+                  ? 'bg-accent text-white'
+                  : 'bg-white border border-border-soft text-slate-600 hover:bg-surface'
+              }`}
+            >
+              {onlyDifferences ? 'عرض الكل' : `فيها فرق (${differencesCount})`}
+            </button>
+          </div>
+
+          <div className="card overflow-hidden mb-5">
+            <div className="table-scroll">
+              <table className="w-full text-right">
+                <thead className="bg-navy-900 text-white text-sm">
+                  <tr>
+                    <th className="p-3 whitespace-nowrap">رقم القطعة</th>
+                    <th className="p-3 whitespace-nowrap">الصنف</th>
+                    <th className="p-3 whitespace-nowrap">الكمية المسجّلة</th>
+                    <th className="p-3 whitespace-nowrap">الكمية الفعلية (عدّها)</th>
+                    <th className="p-3 whitespace-nowrap">الفرق</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {loading ? (
+                    <tr><td colSpan={5} className="p-6 text-center text-slate-500">
+                      <div className="flex items-center justify-center gap-2"><Loader2 size={16} className="animate-spin" />جاري التحميل...</div>
+                    </td></tr>
+                  ) : displayedRows.length === 0 ? (
+                    <tr><td colSpan={5} className="p-6 text-center text-slate-500">لا توجد أصناف لعرضها</td></tr>
+                  ) : (
+                    displayedRows.map((row) => {
+                      const diff = (Number(row.countedQty) || 0) - row.systemQty
+                      return (
+                        <tr
+                          key={row.productId}
+                          className={`border-t border-border-soft transition-colors ${diff !== 0 ? 'bg-accent/5' : 'hover:bg-surface'}`}
+                        >
+                          <td className="p-3 font-mono-data whitespace-nowrap">{row.partNumber}</td>
+                          <td className="p-3 whitespace-nowrap">{row.name}</td>
+                          <td className="p-3 font-mono-data whitespace-nowrap text-slate-500">{row.systemQty}</td>
+                          <td className="p-3 whitespace-nowrap">
+                            <input
+                              type="number"
+                              value={row.countedQty}
+                              onChange={(e) => handleCountChange(row.productId, e.target.value)}
+                              className="w-24 border border-border-soft rounded-lg px-2 py-1.5 font-mono-data focus:outline-none focus:ring-2 focus:ring-accent"
+                            />
+                          </td>
+                          <td className={`p-3 font-mono-data whitespace-nowrap font-bold ${
+                            diff > 0 ? 'text-emerald-600' : diff < 0 ? 'text-red-600' : 'text-slate-400'
+                          }`}>
+                            {diff > 0 ? `+${diff}` : diff}
+                          </td>
+                        </tr>
+                      )
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div className="card p-5 md:p-6">
+            <input
+              type="text"
+              placeholder="ملاحظة على عملية الجرد (اختياري)"
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              className="w-full border border-border-soft rounded-xl px-3 py-2.5 mb-4 focus:outline-none focus:ring-2 focus:ring-accent"
+            />
+
+            {error && <p className="text-red-600 text-sm mb-3">{error}</p>}
+            {success && <p className="text-emerald-600 text-sm mb-3">{success}</p>}
+
+            <button
+              onClick={handleSubmit}
+              disabled={saving || loading}
+              className="btn-primary w-full flex items-center justify-center gap-2 text-white rounded-xl py-2.5 font-medium transition-all disabled:opacity-70"
+            >
+              {saving ? <Loader2 size={16} className="animate-spin" /> : <ClipboardCheck size={16} />}
+              {saving ? 'جاري التسوية...' : 'تسجيل الجرد وتسوية الفروقات'}
+            </button>
+          </div>
+        </>
+      ) : (
+        <div className="card overflow-hidden">
+          {historyLoading ? (
+            <div className="flex items-center justify-center gap-2 p-6 text-slate-500">
+              <Loader2 size={16} className="animate-spin" />
+              جاري التحميل...
+            </div>
+          ) : history.length === 0 ? (
+            <p className="p-6 text-center text-slate-500">لا توجد عمليات جرد سابقة</p>
+          ) : (
+            <ul>
+              {history.map((h) => (
+                <li key={h.id} className="border-t border-border-soft first:border-t-0">
+                  <button
+                    onClick={() => toggleExpand(h.id)}
+                    className="w-full flex items-center justify-between px-4 py-3 hover:bg-surface transition-colors text-right"
+                  >
+                    <div>
+                      <p className="font-medium text-navy-900">{warehouseNames[h.warehouse_id] ?? '-'}</p>
+                      <p className="text-xs text-slate-500 mt-0.5">
+                        {new Date(h.created_at).toLocaleString('ar-EG')}
+                        {h.notes ? ` — ${h.notes}` : ''}
+                      </p>
+                    </div>
+                    {expandedId === h.id ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                  </button>
+
+                  {expandedId === h.id && (
+                    <div className="panel-enter bg-surface p-4 border-t border-border-soft">
+                      {itemsLoading ? (
+                        <div className="flex items-center gap-2 text-sm text-slate-500">
+                          <Loader2 size={14} className="animate-spin" />
+                          جاري التحميل...
+                        </div>
+                      ) : (
+                        <div className="table-scroll">
+                          <table className="w-full text-sm bg-white rounded-lg overflow-hidden border border-border-soft">
+                            <thead className="bg-navy-900 text-white">
+                              <tr>
+                                <th className="p-2 text-right whitespace-nowrap">الصنف</th>
+                                <th className="p-2 text-right whitespace-nowrap">المسجّل قبل الجرد</th>
+                                <th className="p-2 text-right whitespace-nowrap">المعدود فعليًا</th>
+                                <th className="p-2 text-right whitespace-nowrap">الفرق</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {historyItems.map((item) => (
+                                <tr key={item.id} className="border-t border-border-soft">
+                                  <td className="p-2 whitespace-nowrap">{productNames[item.product_id] ?? item.product_id}</td>
+                                  <td className="p-2 font-mono-data whitespace-nowrap text-slate-500">{item.system_quantity}</td>
+                                  <td className="p-2 font-mono-data whitespace-nowrap">{item.counted_quantity}</td>
+                                  <td className={`p-2 font-mono-data whitespace-nowrap font-bold ${
+                                    item.difference > 0 ? 'text-emerald-600' : item.difference < 0 ? 'text-red-600' : 'text-slate-400'
+                                  }`}>
+                                    {item.difference > 0 ? `+${item.difference}` : item.difference}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
     </div>
   )
 }
