@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { ChevronDown, ChevronUp, Loader2 } from 'lucide-react'
 import { supabase } from '../lib/supabaseClient'
 import { loadDraft, saveDraft, clearDraft } from '../lib/draft'
+import Select from '../components/Select'
 import type { Database } from '../lib/database.types'
 import ProductUnitsPanel from '../components/ProductUnitsPanel'
 
@@ -64,9 +65,7 @@ export default function Products() {
       setLoading(false)
     })
 
-    return () => {
-      cancelled = true
-    }
+    return () => { cancelled = true }
   }, [])
 
   const handleChange = (
@@ -140,17 +139,14 @@ export default function Products() {
           required
           className="border border-border-soft rounded-xl px-3 py-2.5 sm:col-span-2 focus:outline-none focus:ring-2 focus:ring-accent transition-shadow"
         />
-        <select
-          name="category_id"
-          value={form.category_id}
-          onChange={handleChange}
-          className="border border-border-soft rounded-xl px-3 py-2.5 sm:col-span-2 focus:outline-none focus:ring-2 focus:ring-accent transition-shadow"
-        >
-          <option value="">بدون تصنيف</option>
-          {categories.map((c) => (
-            <option key={c.id} value={c.id}>{c.name}</option>
-          ))}
-        </select>
+        <div className="sm:col-span-2">
+          <Select name="category_id" value={form.category_id} onChange={handleChange}>
+            <option value="">بدون تصنيف</option>
+            {categories.map((c) => (
+              <option key={c.id} value={c.id}>{c.name}</option>
+            ))}
+          </Select>
+        </div>
         <input
           name="cost_price"
           value={form.cost_price}

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Loader2, Trash2, Plus } from 'lucide-react'
 import { supabase } from '../lib/supabaseClient'
 import { loadDraft, saveDraft, clearDraft } from '../lib/draft'
+import Select from '../components/Select'
 import type { Database } from '../lib/database.types'
 import InvoicePrint, { type InvoicePrintData } from '../components/InvoicePrint'
 
@@ -32,7 +33,8 @@ const draft = loadDraft<SalesDraft>(DRAFT_KEY, {
 })
 
 export default function Sales() {
-  const [products, setProducts] = useState<Product[]>([])
+  const [allProducts, setAllProducts] = useState<Product[]>([])
+  const [inWarehouseProductIds, setInWarehouseProductIds] = useState<Set<string>>(new Set())
   const [units, setUnits] = useState<ProductUnit[]>([])
   const [customers, setCustomers] = useState<Customer[]>([])
   const [warehouses, setWarehouses] = useState<Warehouse[]>([])
@@ -53,8 +55,6 @@ export default function Sales() {
     unit_price: '',
   })
 
-  // حفظ مسودة الفاتورة تلقائيًا مع أي تغيير، عشان لو حصل قفل مفاجئ
-  // للتطبيق أو تغيير صفحة بالغلط، الفاتورة ترجع زي ما هي بالظبط
   useEffect(() => {
     saveDraft<SalesDraft>(DRAFT_KEY, { warehouseId, customerId, paidAmount, cart })
   }, [warehouseId, customerId, paidAmount, cart])
@@ -69,22 +69,40 @@ export default function Sales() {
       supabase.from('warehouses').select('*').order('created_at'),
     ]).then(([p, u, c, w]) => {
       if (cancelled) return
-      if (p.data) setProducts(p.data)
+      if (p.data) setAllProducts(p.data)
       if (u.data) setUnits(u.data)
       if (c.data) setCustomers(c.data)
       if (w.data) {
         setWarehouses(w.data)
-        // نختار مخزن افتراضي بس لو مفيش مسودة محفوظة أصلًا
-        if (w.data.length > 0 && !warehouseId) setWarehouseId(w.data[0].id)
+        if (!warehouseId) {
+          const def = w.data.find((x) => x.is_default) ?? w.data[0]
+          if (def) setWarehouseId(def.id)
+        }
       }
       setLoading(false)
     })
 
-    return () => {
-      cancelled = true
-    }
+    return () => { cancelled = true }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  // لازم نعرف بس الأصناف اللي فعلًا موجودة في المخزن المختار (يعني
+  // ليها سجل مخزون فيه)، عشان منقدرش نبيع صنف مش موجود في المخزن ده
+  useEffect(() => {
+    if (!warehouseId) return
+    let cancelled = false
+    supabase
+      .from('inventory')
+      .select('product_id')
+      .eq('warehouse_id', warehouseId)
+      .then(({ data }) => {
+        if (cancelled) return
+        setInWarehouseProductIds(new Set((data ?? []).map((r) => r.product_id)))
+      })
+    return () => { cancelled = true }
+  }, [warehouseId])
+
+  const products = allProducts.filter((p) => inWarehouseProductIds.has(p.id))
 
   const selectedProduct = products.find((p) => p.id === picker.product_id)
   const availableUnits = [
@@ -234,50 +252,50 @@ export default function Sales() {
       </div>
 
       <div className="card p-5 md:p-6 mb-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <select
+        <Select
           value={warehouseId}
-          onChange={(e) => setWarehouseId(e.target.value)}
-          className="border border-border-soft rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-accent"
+          onChange={(e) => {
+            setWarehouseId(e.target.value)
+            setCart([])
+          }}
         >
           {warehouses.map((w) => (
-            <option key={w.id} value={w.id}>{w.name}</option>
+            <option key={w.id} value={w.id}>{w.name}{w.is_default ? ' (افتراضي)' : ''}</option>
           ))}
-        </select>
-        <select
-          value={customerId}
-          onChange={(e) => setCustomerId(e.target.value)}
-          className="border border-border-soft rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-accent"
-        >
+        </Select>
+        <Select value={customerId} onChange={(e) => setCustomerId(e.target.value)}>
           <option value="">عميل نقدي (بدون تسجيل)</option>
           {customers.map((c) => (
             <option key={c.id} value={c.id}>{c.name}</option>
           ))}
-        </select>
+        </Select>
       </div>
 
       <div className="card p-5 md:p-6 mb-6">
         <p className="font-display font-bold text-navy-900 mb-3">إضافة صنف</p>
+        {products.length === 0 && (
+          <p className="text-sm text-accent-dark bg-accent/10 rounded-lg px-3 py-2 mb-3">
+            مفيش أي صنف مسجّل مخزونه في المخزن ده لسه — سجّل طلبية شراء عليه الأول.
+          </p>
+        )}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-3">
-          <select
-            value={picker.product_id}
-            onChange={(e) => handleProductChange(e.target.value)}
-            className="border border-border-soft rounded-xl px-3 py-2.5 col-span-2 focus:outline-none focus:ring-2 focus:ring-accent"
-          >
-            <option value="">اختر صنف...</option>
-            {products.map((p) => (
-              <option key={p.id} value={p.id}>{p.part_number} — {p.name}</option>
-            ))}
-          </select>
-          <select
+          <div className="col-span-2">
+            <Select value={picker.product_id} onChange={(e) => handleProductChange(e.target.value)}>
+              <option value="">اختر صنف...</option>
+              {products.map((p) => (
+                <option key={p.id} value={p.id}>{p.part_number} — {p.name}</option>
+              ))}
+            </Select>
+          </div>
+          <Select
             value={picker.unit_name}
             onChange={(e) => setPicker({ ...picker, unit_name: e.target.value })}
             disabled={!picker.product_id}
-            className="border border-border-soft rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-accent"
           >
             {availableUnits.map((u) => (
               <option key={u.unit_name} value={u.unit_name}>{u.unit_name}</option>
             ))}
-          </select>
+          </Select>
           <input
             type="number"
             placeholder="الكمية"

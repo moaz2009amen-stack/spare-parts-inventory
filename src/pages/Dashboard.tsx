@@ -9,7 +9,7 @@ interface TopEntry {
 
 interface LatestInvoice {
   invoice_number: string
-  type: 'بيع' | 'شراء'
+  type: 'بيع' | 'طلبية'
   party: string
   total: number
   date: string
@@ -18,10 +18,10 @@ interface LatestInvoice {
 export default function Dashboard() {
   const [loading, setLoading] = useState(true)
   const [totalSales, setTotalSales] = useState(0)
-  const [totalPurchases, setTotalPurchases] = useState(0)
+  const [totalOrdersCost, setTotalOrdersCost] = useState(0)
   const [topCustomers, setTopCustomers] = useState<TopEntry[]>([])
   const [topSellingProducts, setTopSellingProducts] = useState<TopEntry[]>([])
-  const [topPurchasedProducts, setTopPurchasedProducts] = useState<TopEntry[]>([])
+  const [topOrderedProducts, setTopOrderedProducts] = useState<TopEntry[]>([])
   const [latestInvoices, setLatestInvoices] = useState<LatestInvoice[]>([])
 
   useEffect(() => {
@@ -29,30 +29,30 @@ export default function Dashboard() {
 
     async function loadStats() {
       const [
-        salesRes, purchasesRes, saleItemsRes, purchaseItemsRes,
-        customersRes, productsRes, suppliersRes,
+        salesRes, ordersRes, saleItemsRes, orderItemsRes,
+        customersRes, productsRes, warehousesRes,
       ] = await Promise.all([
         supabase.from('sales_invoices').select('*').order('created_at', { ascending: false }),
-        supabase.from('purchase_invoices').select('*').order('created_at', { ascending: false }),
+        supabase.from('orders').select('*').order('created_at', { ascending: false }),
         supabase.from('sales_invoice_items').select('*'),
-        supabase.from('purchase_invoice_items').select('*'),
+        supabase.from('order_items').select('*'),
         supabase.from('customers').select('id, name'),
         supabase.from('products').select('id, name'),
-        supabase.from('suppliers').select('id, name'),
+        supabase.from('warehouses').select('id, name'),
       ])
 
       if (cancelled) return
 
       const sales = salesRes.data ?? []
-      const purchases = purchasesRes.data ?? []
+      const orders = ordersRes.data ?? []
       const saleItems = saleItemsRes.data ?? []
-      const purchaseItems = purchaseItemsRes.data ?? []
+      const orderItems = orderItemsRes.data ?? []
       const customerMap = Object.fromEntries((customersRes.data ?? []).map((c) => [c.id, c.name]))
       const productMap = Object.fromEntries((productsRes.data ?? []).map((p) => [p.id, p.name]))
-      const supplierMap = Object.fromEntries((suppliersRes.data ?? []).map((s) => [s.id, s.name]))
+      const warehouseMap = Object.fromEntries((warehousesRes.data ?? []).map((w) => [w.id, w.name]))
 
       setTotalSales(sales.reduce((sum, s) => sum + s.total_amount, 0))
-      setTotalPurchases(purchases.reduce((sum, p) => sum + p.total_amount, 0))
+      setTotalOrdersCost(orders.reduce((sum, o) => sum + o.total_cost, 0))
 
       const customerTotals: Record<string, number> = {}
       sales.forEach((s) => {
@@ -77,12 +77,12 @@ export default function Dashboard() {
           .map(([id, value]) => ({ name: productMap[id] ?? 'غير معروف', value }))
       )
 
-      const purchasedTotals: Record<string, number> = {}
-      purchaseItems.forEach((it) => {
-        purchasedTotals[it.product_id] = (purchasedTotals[it.product_id] ?? 0) + Number(it.quantity)
+      const orderedTotals: Record<string, number> = {}
+      orderItems.forEach((it) => {
+        orderedTotals[it.product_id] = (orderedTotals[it.product_id] ?? 0) + Number(it.quantity)
       })
-      setTopPurchasedProducts(
-        Object.entries(purchasedTotals)
+      setTopOrderedProducts(
+        Object.entries(orderedTotals)
           .sort((a, b) => b[1] - a[1])
           .slice(0, 5)
           .map(([id, value]) => ({ name: productMap[id] ?? 'غير معروف', value }))
@@ -96,12 +96,12 @@ export default function Dashboard() {
           total: s.total_amount,
           date: s.created_at,
         })),
-        ...purchases.map((p) => ({
-          invoice_number: p.invoice_number,
-          type: 'شراء' as const,
-          party: p.supplier_id ? supplierMap[p.supplier_id] ?? '-' : '-',
-          total: p.total_amount,
-          date: p.created_at,
+        ...orders.map((o) => ({
+          invoice_number: o.order_number,
+          type: 'طلبية' as const,
+          party: warehouseMap[o.warehouse_id] ?? '-',
+          total: o.total_cost,
+          date: o.created_at,
         })),
       ]
         .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
@@ -112,9 +112,7 @@ export default function Dashboard() {
     }
 
     loadStats()
-    return () => {
-      cancelled = true
-    }
+    return () => { cancelled = true }
   }, [])
 
   if (loading) {
@@ -145,8 +143,8 @@ export default function Dashboard() {
             <TrendingDown size={20} />
           </div>
           <div className="min-w-0">
-            <p className="text-sm text-slate-500">إجمالي المشتريات</p>
-            <p className="font-mono-data font-bold text-xl text-navy-900">{totalPurchases.toFixed(2)}</p>
+            <p className="text-sm text-slate-500">إجمالي تكلفة الطلبيات</p>
+            <p className="font-mono-data font-bold text-xl text-navy-900">{totalOrdersCost.toFixed(2)}</p>
           </div>
         </div>
       </div>
@@ -195,13 +193,13 @@ export default function Dashboard() {
         <div className="card p-5">
           <div className="flex items-center gap-2 mb-3">
             <Package size={16} className="text-navy-700" />
-            <p className="font-display font-bold text-navy-900">الأكثر شراءً</p>
+            <p className="font-display font-bold text-navy-900">الأكثر طلبًا</p>
           </div>
-          {topPurchasedProducts.length === 0 ? (
+          {topOrderedProducts.length === 0 ? (
             <p className="text-sm text-slate-500">لا توجد بيانات كافية بعد</p>
           ) : (
             <ul className="space-y-2">
-              {topPurchasedProducts.map((p, i) => (
+              {topOrderedProducts.map((p, i) => (
                 <li key={i} className="flex justify-between gap-2 text-sm">
                   <span className="truncate">{p.name}</span>
                   <span className="font-mono-data font-medium shrink-0">{p.value} قطعة</span>
@@ -212,9 +210,9 @@ export default function Dashboard() {
         </div>
 
         <div className="card p-5">
-          <p className="font-display font-bold text-navy-900 mb-3">آخر الفواتير</p>
+          <p className="font-display font-bold text-navy-900 mb-3">آخر الحركات</p>
           {latestInvoices.length === 0 ? (
-            <p className="text-sm text-slate-500">لا توجد فواتير بعد</p>
+            <p className="text-sm text-slate-500">لا توجد حركات بعد</p>
           ) : (
             <ul className="space-y-2">
               {latestInvoices.map((inv, i) => (

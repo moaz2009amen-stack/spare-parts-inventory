@@ -7,20 +7,52 @@ type Notification = Database['public']['Tables']['notifications']['Row']
 
 const LAST_SEEN_KEY = 'notifications_last_seen'
 
-// صوت تنبيه بسيط بيتولّد بالكود نفسه (نغمتين قصيرتين)، من غير
-// الحاجة لملف صوت خارجي يزود حجم المشروع.
-function playNotificationSound() {
-  try {
-    const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext
-    const ctx = new AudioCtx()
+// نستخدم AudioContext واحد ثابت طول عمر الصفحة بدل ما نعمل واحد جديد
+// كل مرة — المتصفحات كتير بترفض تشغيل Context جديد من غير تفاعل مباشر،
+// فاستخدام واحد ثابت وعمل resume() له أضمن بكتير.
+let sharedAudioCtx: AudioContext | null = null
 
+function getAudioContext(): AudioContext | null {
+  try {
+    if (!sharedAudioCtx) {
+      const AudioCtx =
+        window.AudioContext ||
+        (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext
+      sharedAudioCtx = new AudioCtx()
+    }
+    return sharedAudioCtx
+  } catch {
+    return null
+  }
+}
+
+// عشان أي متصفح يسمح بتشغيل صوت لاحقًا، لازم نعمل "فك قفل" أول مرة
+// جوه حدث تفاعل حقيقي من المستخدم (ضغطة/لمسة). بننده على الدالة دي
+// مرة واحدة بس أول ما المستخدم يضغط في أي مكان في الصفحة.
+function unlockAudioOnce() {
+  const ctx = getAudioContext()
+  if (ctx && ctx.state === 'suspended') {
+    ctx.resume().catch(() => {})
+  }
+  document.removeEventListener('pointerdown', unlockAudioOnce)
+  document.removeEventListener('keydown', unlockAudioOnce)
+}
+
+document.addEventListener('pointerdown', unlockAudioOnce)
+document.addEventListener('keydown', unlockAudioOnce)
+
+function playNotificationSound() {
+  const ctx = getAudioContext()
+  if (!ctx) return
+
+  const start = () => {
     const playTone = (freq: number, startTime: number, duration: number) => {
       const oscillator = ctx.createOscillator()
       const gain = ctx.createGain()
       oscillator.type = 'sine'
       oscillator.frequency.value = freq
       gain.gain.setValueAtTime(0.001, ctx.currentTime + startTime)
-      gain.gain.exponentialRampToValueAtTime(0.15, ctx.currentTime + startTime + 0.02)
+      gain.gain.exponentialRampToValueAtTime(0.18, ctx.currentTime + startTime + 0.02)
       gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + startTime + duration)
       oscillator.connect(gain)
       gain.connect(ctx.destination)
@@ -30,10 +62,12 @@ function playNotificationSound() {
 
     playTone(880, 0, 0.12)
     playTone(1175, 0.12, 0.15)
+  }
 
-    setTimeout(() => ctx.close(), 500)
-  } catch {
-    // بعض المتصفحات بتمنع تشغيل الصوت قبل أول تفاعل من المستخدم، تجاهل بهدوء
+  if (ctx.state === 'suspended') {
+    ctx.resume().then(start).catch(() => {})
+  } else {
+    start()
   }
 }
 
@@ -47,7 +81,6 @@ export default function NotificationBell() {
   useEffect(() => {
     let cancelled = false
 
-    // تنظيف الإشعارات الأقدم من 3 أيام أول ما الجرس يفتح
     supabase.rpc('cleanup_old_notifications').then(() => {})
 
     supabase
@@ -61,6 +94,9 @@ export default function NotificationBell() {
           setNotifications(data)
           updateUnread(data)
         }
+        // بعد ما نجيب القايمة الأولانية، أي حاجة جاية بعد كده تعتبر
+        // إشعار جديد فعلي (يستاهل صوت)
+        isFirstLoad.current = false
       })
 
     const channel = supabase
@@ -80,8 +116,6 @@ export default function NotificationBell() {
         }
       )
       .subscribe()
-
-    isFirstLoad.current = false
 
     return () => {
       cancelled = true

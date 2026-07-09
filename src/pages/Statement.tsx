@@ -6,7 +6,6 @@ import { exportToExcel } from '../lib/exportExcel'
 import type { Database } from '../lib/database.types'
 
 type Customer = Database['public']['Tables']['customers']['Row']
-type Supplier = Database['public']['Tables']['suppliers']['Row']
 
 interface LedgerRow {
   date: string
@@ -16,10 +15,10 @@ interface LedgerRow {
 }
 
 export default function Statement() {
-  const { type, id } = useParams<{ type: 'customer' | 'supplier'; id: string }>()
+  const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
 
-  const [party, setParty] = useState<Customer | Supplier | null>(null)
+  const [party, setParty] = useState<Customer | null>(null)
   const [rows, setRows] = useState<LedgerRow[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -27,21 +26,15 @@ export default function Statement() {
   const [amount, setAmount] = useState('')
   const [notes, setNotes] = useState('')
 
-  const isCustomer = type === 'customer'
-  const table = isCustomer ? 'customers' : 'suppliers'
-
   const loadData = async () => {
-    if (!id || !type) return
+    if (!id) return
     setLoading(true)
 
-    const [partyRes, paymentsRes] = await Promise.all([
-      supabase.from(table).select('*').eq('id', id).single(),
-      supabase.from('payments').select('*').eq('party_type', type).eq('party_id', id),
+    const [partyRes, invoicesRes, paymentsRes] = await Promise.all([
+      supabase.from('customers').select('*').eq('id', id).single(),
+      supabase.from('sales_invoices').select('*').eq('customer_id', id),
+      supabase.from('payments').select('*').eq('party_type', 'customer').eq('party_id', id),
     ])
-
-    const invoicesRes = isCustomer
-      ? await supabase.from('sales_invoices').select('*').eq('customer_id', id)
-      : await supabase.from('purchase_invoices').select('*').eq('supplier_id', id)
 
     if (partyRes.data) setParty(partyRes.data)
 
@@ -54,7 +47,7 @@ export default function Statement() {
 
     const paymentRows: LedgerRow[] = (paymentsRes.data ?? []).map((p) => ({
       date: p.created_at,
-      label: p.notes || (isCustomer ? 'دفعة محصّلة' : 'دفعة مسددة'),
+      label: p.notes || 'دفعة محصّلة',
       debit: 0,
       credit: p.amount,
     }))
@@ -70,13 +63,13 @@ export default function Statement() {
   useEffect(() => {
     loadData()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id, type])
+  }, [id])
 
   const handleRecordPayment = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
 
-    if (!type || !id) {
+    if (!id) {
       setError('تعذر تحديد الحساب، حاول تفتح الصفحة تاني')
       return
     }
@@ -90,9 +83,9 @@ export default function Statement() {
     setSaving(true)
 
     const { error } = await supabase.rpc('record_payment', {
-      p_party_type: type,
+      p_party_type: 'customer',
       p_party_id: id,
-      p_direction: isCustomer ? 'in' : 'out',
+      p_direction: 'in',
       p_amount: value,
       p_notes: notes || null,
     })
@@ -105,6 +98,24 @@ export default function Statement() {
       await loadData()
     }
     setSaving(false)
+  }
+
+  let runningBalance = 0
+
+  const handleExport = () => {
+    if (!party) return
+    let balance = 0
+    const exportRows = rows.map((row) => {
+      balance += row.debit - row.credit
+      return {
+        'التاريخ': new Date(row.date).toLocaleDateString('ar-EG'),
+        'البيان': row.label,
+        'مدين (عليه)': row.debit || '',
+        'دائن (له)': row.credit || '',
+        'الرصيد بعدها': balance,
+      }
+    })
+    exportToExcel(`كشف-حساب-${party.name}`, 'كشف الحساب', exportRows)
   }
 
   if (loading) {
@@ -120,32 +131,15 @@ export default function Statement() {
     return <div className="p-8 text-slate-500">لم يتم العثور على السجل</div>
   }
 
-  let runningBalance = 0
-
-  const handleExport = () => {
-    let balance = 0
-    const exportRows = rows.map((row) => {
-      balance += row.debit - row.credit
-      return {
-        'التاريخ': new Date(row.date).toLocaleDateString('ar-EG'),
-        'البيان': row.label,
-        'مدين (عليه)': row.debit || '',
-        'دائن (له)': row.credit || '',
-        'الرصيد بعدها': balance,
-      }
-    })
-    exportToExcel(`كشف-حساب-${party.name}`, 'كشف الحساب', exportRows)
-  }
-
   return (
     <div className="page-enter p-4 md:p-6 max-w-4xl mx-auto">
       <div className="flex items-center justify-between mb-4">
         <button
-          onClick={() => navigate(isCustomer ? '/customers' : '/suppliers')}
+          onClick={() => navigate('/customers')}
           className="flex items-center gap-1 text-sm text-accent-dark hover:underline"
         >
           <ArrowRight size={14} />
-          رجوع لـ{isCustomer ? 'العملاء' : 'الموردين'}
+          رجوع للعملاء
         </button>
         <button
           onClick={handleExport}
@@ -162,22 +156,17 @@ export default function Statement() {
           <p className="text-sm text-slate-500">{party.phone ?? 'بدون رقم هاتف'}</p>
         </div>
         <div className="text-right sm:text-left">
-          <p className="text-xs text-slate-500">
-            {isCustomer ? 'رصيد مديون به للمحل' : 'رصيد المحل مديون به'}
-          </p>
+          <p className="text-xs text-slate-500">رصيد مديون به للمحل</p>
           <p className={`font-mono-data font-bold text-2xl ${party.balance > 0 ? 'text-red-600' : 'text-emerald-600'}`}>
             {party.balance.toFixed(2)}
           </p>
         </div>
       </div>
 
-      {/* تسجيل دفعة جديدة */}
       <div className="card p-5 md:p-6 mb-6">
         <div className="flex items-center gap-2 mb-3">
           <Wallet size={16} className="text-accent-dark" />
-          <p className="font-display font-bold text-navy-900">
-            {isCustomer ? 'تسجيل تحصيل من العميل' : 'تسجيل سداد للمورد'}
-          </p>
+          <p className="font-display font-bold text-navy-900">تسجيل تحصيل من العميل</p>
         </div>
         <form onSubmit={handleRecordPayment} className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <input
@@ -207,7 +196,6 @@ export default function Statement() {
         {error && <p className="text-red-600 text-sm mt-3">{error}</p>}
       </div>
 
-      {/* كشف الحساب */}
       <div className="card overflow-hidden">
         <div className="table-scroll">
           <table className="w-full text-right">

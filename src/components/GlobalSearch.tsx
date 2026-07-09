@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabaseClient'
 
 interface SearchResult {
-  type: 'صنف' | 'عميل' | 'مورد' | 'فاتورة بيع' | 'فاتورة شراء'
+  type: 'صنف' | 'عميل' | 'فاتورة بيع' | 'طلبية'
   label: string
   sublabel?: string
   path: string
@@ -38,12 +38,11 @@ export default function GlobalSearch() {
       setLoading(true)
       const term = `%${query.trim()}%`
 
-      const [products, customers, suppliers, sales, purchases] = await Promise.all([
+      const [products, customers, sales, orders] = await Promise.all([
         supabase.from('products').select('id, name, part_number').or(`name.ilike.${term},part_number.ilike.${term},barcode.ilike.${term}`).limit(5),
         supabase.from('customers').select('id, name, phone').ilike('name', term).limit(5),
-        supabase.from('suppliers').select('id, name, phone').ilike('name', term).limit(5),
         supabase.from('sales_invoices').select('id, invoice_number').ilike('invoice_number', term).limit(5),
-        supabase.from('purchase_invoices').select('id, invoice_number').ilike('invoice_number', term).limit(5),
+        supabase.from('orders').select('id, order_number').ilike('order_number', term).limit(5),
       ])
 
       const combined: SearchResult[] = [
@@ -53,14 +52,11 @@ export default function GlobalSearch() {
         ...(customers.data ?? []).map((c) => ({
           type: 'عميل' as const, label: c.name, sublabel: c.phone ?? undefined, path: '/customers',
         })),
-        ...(suppliers.data ?? []).map((s) => ({
-          type: 'مورد' as const, label: s.name, sublabel: s.phone ?? undefined, path: '/suppliers',
-        })),
         ...(sales.data ?? []).map((s) => ({
           type: 'فاتورة بيع' as const, label: s.invoice_number, path: '/invoices',
         })),
-        ...(purchases.data ?? []).map((p) => ({
-          type: 'فاتورة شراء' as const, label: p.invoice_number, path: '/invoices',
+        ...(orders.data ?? []).map((o) => ({
+          type: 'طلبية' as const, label: o.order_number, path: '/invoices',
         })),
       ]
 
@@ -82,7 +78,7 @@ export default function GlobalSearch() {
             setOpen(true)
           }}
           onFocus={() => setOpen(true)}
-          placeholder="ابحث برقم فاتورة، عميل، صنف..."
+          placeholder="ابحث برقم فاتورة، طلبية، عميل، صنف..."
           className="w-full border border-border-soft rounded-xl pr-9 pl-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent transition-shadow"
         />
         {loading && (

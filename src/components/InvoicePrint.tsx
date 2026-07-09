@@ -34,24 +34,22 @@ export default function InvoicePrint({
           className="flex items-center justify-center gap-2 bg-navy-900 text-white rounded-xl px-4 py-2 text-sm font-medium hover:bg-navy-800 transition-colors"
         >
           <Printer size={16} />
-          طباعة الفاتورة
+          طباعة
         </button>
         <button
           onClick={onNewInvoice}
           className="btn-primary flex items-center justify-center gap-2 text-white rounded-xl px-4 py-2 text-sm font-medium transition-all"
         >
           <FilePlus size={16} />
-          فاتورة جديدة
+          {data.type === 'sale' ? 'فاتورة جديدة' : 'طلبية جديدة'}
         </button>
       </div>
 
-      {/* منطقة الطباعة الفعلية — كل شيء هنا محاذٍ لليمين بثبات في كل الأحجام */}
       <div className="print-area max-w-2xl mx-auto">
-        {/* رأس الفاتورة */}
         <div className="grid grid-cols-2 gap-2 items-start border-b-2 border-navy-900 pb-4 mb-5">
           <div>
             <h2 className="font-display font-extrabold text-lg md:text-xl text-navy-900">
-              {data.type === 'sale' ? 'فاتورة بيع' : 'فاتورة شراء'}
+              {data.type === 'sale' ? 'فاتورة بيع' : 'طلبية شراء'}
             </h2>
             <p className="text-xs md:text-sm text-slate-500 mt-1">
               نظام إدارة مخزن قطع غيار السيارات
@@ -63,13 +61,11 @@ export default function InvoicePrint({
           </div>
         </div>
 
-        {/* بيانات الطرف التاني */}
         <div className="flex justify-between items-center bg-surface rounded-xl px-4 py-3 mb-5 text-sm">
-          <span className="text-slate-500">{data.type === 'sale' ? 'العميل' : 'المورد'}</span>
+          <span className="text-slate-500">{data.type === 'sale' ? 'العميل' : 'المخزن'}</span>
           <span className="font-medium text-navy-900">{data.partyName}</span>
         </div>
 
-        {/* جدول الأصناف */}
         <div className="table-scroll mb-5">
           <table className="w-full text-sm border border-border-soft rounded-xl overflow-hidden">
             <thead>
@@ -97,21 +93,29 @@ export default function InvoicePrint({
           </table>
         </div>
 
-        {/* الإجماليات — دايمًا بنفس العرض وبنفس المحاذاة بغض النظر عن حجم الشاشة */}
         <div className="flex justify-start">
           <div className="w-full sm:w-72 text-sm border border-border-soft rounded-xl overflow-hidden">
             <div className="flex justify-between px-4 py-2.5 border-b border-border-soft">
               <span className="text-slate-500">الإجمالي</span>
               <span className="font-mono-data font-medium">{data.total.toFixed(2)}</span>
             </div>
-            <div className="flex justify-between px-4 py-2.5 border-b border-border-soft">
-              <span className="text-slate-500">المدفوع</span>
-              <span className="font-mono-data font-medium">{data.paid.toFixed(2)}</span>
-            </div>
-            <div className="flex justify-between px-4 py-2.5 bg-surface">
-              <span className="font-bold text-navy-900">المتبقي</span>
-              <span className="font-mono-data font-bold text-navy-900">{remaining.toFixed(2)}</span>
-            </div>
+            {data.type === 'sale' ? (
+              <>
+                <div className="flex justify-between px-4 py-2.5 border-b border-border-soft">
+                  <span className="text-slate-500">المدفوع</span>
+                  <span className="font-mono-data font-medium">{data.paid.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between px-4 py-2.5 bg-surface">
+                  <span className="font-bold text-navy-900">المتبقي</span>
+                  <span className="font-mono-data font-bold text-navy-900">{remaining.toFixed(2)}</span>
+                </div>
+              </>
+            ) : (
+              <div className="flex justify-between px-4 py-2.5 bg-surface">
+                <span className="font-bold text-navy-900">الحالة</span>
+                <span className="font-mono-data font-bold text-emerald-600">مدفوعة بالكامل</span>
+              </div>
+            )}
           </div>
         </div>
       </div>

@@ -7,12 +7,11 @@ import Dashboard from './pages/Dashboard'
 import Products from './pages/Products'
 import Categories from './pages/Categories'
 import Customers from './pages/Customers'
-import Suppliers from './pages/Suppliers'
 import Statement from './pages/Statement'
 import Sales from './pages/Sales'
-import Purchases from './pages/Purchases'
+import Orders from './pages/Orders'
 import InvoicesList from './pages/InvoicesList'
-import Inventory from './pages/Inventory'
+import Warehouses from './pages/Warehouses'
 import Stocktake from './pages/Stocktake'
 
 function AppContent() {
@@ -30,12 +29,11 @@ function AppContent() {
           <Route path="/products" element={<Products />} />
           <Route path="/categories" element={<Categories />} />
           <Route path="/customers" element={<Customers />} />
-          <Route path="/suppliers" element={<Suppliers />} />
-          <Route path="/statement/:type/:id" element={<Statement />} />
+          <Route path="/statement/:id" element={<Statement />} />
           <Route path="/sales" element={<Sales />} />
-          <Route path="/purchases" element={<Purchases />} />
+          <Route path="/orders" element={<Orders />} />
           <Route path="/invoices" element={<InvoicesList />} />
-          <Route path="/inventory" element={<Inventory />} />
+          <Route path="/warehouses" element={<Warehouses />} />
           <Route path="/stocktake" element={<Stocktake />} />
         </Route>
       </Routes>

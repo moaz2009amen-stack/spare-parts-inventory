@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react'
 import { Loader2, ClipboardCheck, ChevronDown, ChevronUp } from 'lucide-react'
 import { supabase } from '../lib/supabaseClient'
+import Select from '../components/Select'
 import type { Database } from '../lib/database.types'
 
-type Product = Database['public']['Tables']['products']['Row']
 type Warehouse = Database['public']['Tables']['warehouses']['Row']
 type StocktakeRow = Database['public']['Tables']['stocktakes']['Row']
 type StocktakeItemRow = Database['public']['Tables']['stocktake_items']['Row']
@@ -19,7 +19,6 @@ interface CountRow {
 export default function Stocktake() {
   const [tab, setTab] = useState<'new' | 'history'>('new')
 
-  // ---------- جرد جديد ----------
   const [warehouses, setWarehouses] = useState<Warehouse[]>([])
   const [warehouseId, setWarehouseId] = useState('')
   const [rows, setRows] = useState<CountRow[]>([])
@@ -30,7 +29,6 @@ export default function Stocktake() {
   const [notes, setNotes] = useState('')
   const [onlyDifferences, setOnlyDifferences] = useState(false)
 
-  // ---------- سجل الجرد ----------
   const [history, setHistory] = useState<StocktakeRow[]>([])
   const [historyLoading, setHistoryLoading] = useState(true)
   const [expandedId, setExpandedId] = useState<string | null>(null)
@@ -46,7 +44,8 @@ export default function Stocktake() {
       if (data) {
         setWarehouses(data)
         setWarehouseNames(Object.fromEntries(data.map((w) => [w.id, w.name])))
-        if (data.length > 0) setWarehouseId(data[0].id)
+        const def = data.find((w) => w.is_default) ?? data[0]
+        if (def) setWarehouseId(def.id)
       }
     })
     supabase.from('products').select('id, name').then(({ data }) => {
@@ -62,18 +61,23 @@ export default function Stocktake() {
     setLoading(true)
 
     Promise.all([
-      supabase.from('products').select('*').eq('is_active', true).order('name'),
-      supabase.from('inventory').select('*').eq('warehouse_id', warehouseId),
-    ]).then(([p, inv]) => {
+      supabase
+        .from('inventory')
+        .select('product_id, quantity, products(part_number, name)')
+        .eq('warehouse_id', warehouseId),
+    ]).then(([inv]) => {
       if (cancelled) return
-      const invMap = Object.fromEntries((inv.data ?? []).map((i) => [i.product_id, i.quantity]))
-      const combined: CountRow[] = (p.data ?? []).map((product: Product) => ({
-        productId: product.id,
-        partNumber: product.part_number,
-        name: product.name,
-        systemQty: invMap[product.id] ?? 0,
-        countedQty: String(invMap[product.id] ?? 0),
-      }))
+
+      const combined: CountRow[] = (inv.data ?? []).map((row) => {
+        const product = row.products as unknown as { part_number: string; name: string } | null
+        return {
+          productId: row.product_id,
+          partNumber: product?.part_number ?? '-',
+          name: product?.name ?? '-',
+          systemQty: row.quantity,
+          countedQty: String(row.quantity),
+        }
+      })
       setRows(combined)
       setLoading(false)
     })
@@ -182,21 +186,19 @@ export default function Stocktake() {
       {tab === 'new' ? (
         <>
           <div className="flex justify-end mb-4">
-            <select
-              value={warehouseId}
-              onChange={(e) => setWarehouseId(e.target.value)}
-              className="border border-border-soft rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-accent"
-            >
-              {warehouses.map((w) => (
-                <option key={w.id} value={w.id}>{w.name}</option>
-              ))}
-            </select>
+            <div className="w-full sm:w-64">
+              <Select value={warehouseId} onChange={(e) => setWarehouseId(e.target.value)}>
+                {warehouses.map((w) => (
+                  <option key={w.id} value={w.id}>{w.name}{w.is_default ? ' (افتراضي)' : ''}</option>
+                ))}
+              </Select>
+            </div>
           </div>
 
           <div className="card p-4 md:p-5 mb-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <p className="text-sm text-slate-500">
-              اكتب الكمية الفعلية اللي شايفها في المخزن قدام كل صنف. أي صنف رقمه
-              مختلف عن المسجّل هيتلوّن بالبرتقالي.
+              الجدول ده بيعرض بس الأصناف اللي ليها مخزون مسجّل في المخزن ده.
+              اكتب الكمية الفعلية اللي شايفها قدام كل صنف.
             </p>
             <button
               onClick={() => setOnlyDifferences(!onlyDifferences)}
@@ -228,7 +230,7 @@ export default function Stocktake() {
                       <div className="flex items-center justify-center gap-2"><Loader2 size={16} className="animate-spin" />جاري التحميل...</div>
                     </td></tr>
                   ) : displayedRows.length === 0 ? (
-                    <tr><td colSpan={5} className="p-6 text-center text-slate-500">لا توجد أصناف لعرضها</td></tr>
+                    <tr><td colSpan={5} className="p-6 text-center text-slate-500">لا يوجد مخزون مسجّل في هذا المخزن بعد</td></tr>
                   ) : (
                     displayedRows.map((row) => {
                       const diff = (Number(row.countedQty) || 0) - row.systemQty

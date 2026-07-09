@@ -1,10 +1,12 @@
 import { useState } from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
 import {
-  LayoutDashboard, Package, Tags, Users, Truck, ShoppingCart,
-  ShoppingBag, Warehouse, FileText, ClipboardList, LogOut, Wrench, Menu, X,
+  LayoutDashboard, Package, Tags, Users, ShoppingCart,
+  ClipboardList as OrdersIcon, FileText, Warehouse as WarehouseIcon,
+  ClipboardList, LogOut, Wrench, Menu, X,
 } from 'lucide-react'
 import { supabase } from '../lib/supabaseClient'
+import { useAuth } from '../context/useAuth'
 import NotificationBell from './NotificationBell'
 import GlobalSearch from './GlobalSearch'
 
@@ -13,16 +15,16 @@ const links = [
   { to: '/products', label: 'الأصناف', icon: Package },
   { to: '/categories', label: 'التصنيفات', icon: Tags },
   { to: '/customers', label: 'العملاء', icon: Users },
-  { to: '/suppliers', label: 'الموردين', icon: Truck },
   { to: '/sales', label: 'فاتورة بيع', icon: ShoppingCart },
-  { to: '/purchases', label: 'فاتورة شراء', icon: ShoppingBag },
-  { to: '/invoices', label: 'كل الفواتير', icon: FileText },
-  { to: '/inventory', label: 'المخزون', icon: Warehouse },
+  { to: '/orders', label: 'طلبية جديدة', icon: OrdersIcon },
+  { to: '/invoices', label: 'الفواتير والطلبيات', icon: FileText },
+  { to: '/warehouses', label: 'المخازن', icon: WarehouseIcon },
   { to: '/stocktake', label: 'الجرد', icon: ClipboardList },
 ]
 
 export default function Layout() {
   const [mobileOpen, setMobileOpen] = useState(false)
+  const { profile } = useAuth()
 
   const handleLogout = async () => {
     await supabase.auth.signOut()
@@ -50,6 +52,13 @@ export default function Layout() {
     </nav>
   )
 
+  const WelcomeBlock = () => (
+    <div className="px-5 py-3 border-b border-white/10">
+      <p className="text-xs text-white/50">أهلًا بيك 👋</p>
+      <p className="text-sm font-medium text-white truncate">{profile?.full_name ?? '...'}</p>
+    </div>
+  )
+
   return (
     <div className="flex min-h-screen bg-surface">
       <aside className="hidden md:flex w-64 flex-col bg-linear-to-b from-navy-900 to-navy-950 text-white sticky top-0 h-screen">
@@ -57,6 +66,7 @@ export default function Layout() {
           <Wrench className="text-accent" size={22} />
           <span className="font-display font-extrabold text-lg">نظام المخزن</span>
         </div>
+        <WelcomeBlock />
         <NavItems />
         <button
           onClick={handleLogout}
@@ -83,6 +93,7 @@ export default function Layout() {
                 <X size={20} />
               </button>
             </div>
+            <WelcomeBlock />
             <NavItems />
             <button
               onClick={handleLogout}
@@ -106,6 +117,10 @@ export default function Layout() {
 
           <div className="flex-1 min-w-0">
             <GlobalSearch />
+          </div>
+
+          <div className="hidden md:block text-sm text-slate-500">
+            أهلًا، <span className="font-medium text-navy-900">{profile?.full_name ?? ''}</span>
           </div>
 
           <NotificationBell />

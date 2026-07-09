@@ -2,12 +2,12 @@ import { useEffect, useState } from 'react'
 import { Loader2, Trash2, Plus } from 'lucide-react'
 import { supabase } from '../lib/supabaseClient'
 import { loadDraft, saveDraft, clearDraft } from '../lib/draft'
+import Select from '../components/Select'
 import type { Database } from '../lib/database.types'
 import InvoicePrint, { type InvoicePrintData } from '../components/InvoicePrint'
 
 type Product = Database['public']['Tables']['products']['Row']
 type ProductUnit = Database['public']['Tables']['product_units']['Row']
-type Supplier = Database['public']['Tables']['suppliers']['Row']
 type Warehouse = Database['public']['Tables']['warehouses']['Row']
 
 interface CartItem {
@@ -19,31 +19,26 @@ interface CartItem {
   unit_cost: number
 }
 
-interface PurchaseDraft {
+interface OrderDraft {
   warehouseId: string
-  supplierId: string
-  paidAmount: string
+  notes: string
   cart: CartItem[]
 }
 
-const DRAFT_KEY = 'purchase-invoice'
-const draft = loadDraft<PurchaseDraft>(DRAFT_KEY, {
-  warehouseId: '', supplierId: '', paidAmount: '', cart: [],
-})
+const DRAFT_KEY = 'new-order'
+const draft = loadDraft<OrderDraft>(DRAFT_KEY, { warehouseId: '', notes: '', cart: [] })
 
-export default function Purchases() {
+export default function Orders() {
   const [products, setProducts] = useState<Product[]>([])
   const [units, setUnits] = useState<ProductUnit[]>([])
-  const [suppliers, setSuppliers] = useState<Supplier[]>([])
   const [warehouses, setWarehouses] = useState<Warehouse[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
-  const [invoice, setInvoice] = useState<InvoicePrintData | null>(null)
+  const [order, setOrder] = useState<InvoicePrintData | null>(null)
 
   const [warehouseId, setWarehouseId] = useState(draft.warehouseId)
-  const [supplierId, setSupplierId] = useState(draft.supplierId)
-  const [paidAmount, setPaidAmount] = useState(draft.paidAmount)
+  const [notes, setNotes] = useState(draft.notes)
   const [cart, setCart] = useState<CartItem[]>(draft.cart)
 
   const [picker, setPicker] = useState({
@@ -54,8 +49,8 @@ export default function Purchases() {
   })
 
   useEffect(() => {
-    saveDraft<PurchaseDraft>(DRAFT_KEY, { warehouseId, supplierId, paidAmount, cart })
-  }, [warehouseId, supplierId, paidAmount, cart])
+    saveDraft<OrderDraft>(DRAFT_KEY, { warehouseId, notes, cart })
+  }, [warehouseId, notes, cart])
 
   useEffect(() => {
     let cancelled = false
@@ -63,23 +58,22 @@ export default function Purchases() {
     Promise.all([
       supabase.from('products').select('*').order('name'),
       supabase.from('product_units').select('*'),
-      supabase.from('suppliers').select('*').order('name'),
       supabase.from('warehouses').select('*').order('created_at'),
-    ]).then(([p, u, s, w]) => {
+    ]).then(([p, u, w]) => {
       if (cancelled) return
       if (p.data) setProducts(p.data)
       if (u.data) setUnits(u.data)
-      if (s.data) setSuppliers(s.data)
       if (w.data) {
         setWarehouses(w.data)
-        if (w.data.length > 0 && !warehouseId) setWarehouseId(w.data[0].id)
+        if (!warehouseId) {
+          const def = w.data.find((x) => x.is_default) ?? w.data[0]
+          if (def) setWarehouseId(def.id)
+        }
       }
       setLoading(false)
     })
 
-    return () => {
-      cancelled = true
-    }
+    return () => { cancelled = true }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -127,10 +121,9 @@ export default function Purchases() {
   const total = cart.reduce((sum, item) => sum + item.quantity * item.unit_cost, 0)
 
   const resetForm = () => {
-    setInvoice(null)
+    setOrder(null)
     setCart([])
-    setPaidAmount('')
-    setSupplierId('')
+    setNotes('')
     setError('')
     clearDraft(DRAFT_KEY)
   }
@@ -139,7 +132,7 @@ export default function Purchases() {
     setError('')
 
     if (cart.length === 0) {
-      setError('أضف صنف واحد على الأقل للفاتورة')
+      setError('أضف صنف واحد على الأقل للطلبية')
       return
     }
     if (!warehouseId) {
@@ -149,11 +142,9 @@ export default function Purchases() {
 
     setSaving(true)
 
-    const paid = Number(paidAmount) || 0
-
-    const { data: invoiceId, error } = await supabase.rpc('create_purchase_invoice', {
-      p_supplier_id: supplierId || null,
+    const { data: orderId, error } = await supabase.rpc('create_order', {
       p_warehouse_id: warehouseId,
+      p_notes: notes || null,
       p_items: cart.map((item) => ({
         product_id: item.product_id,
         unit_name: item.unit_name,
@@ -161,7 +152,6 @@ export default function Purchases() {
         quantity: item.quantity,
         unit_cost: item.unit_cost,
       })),
-      p_paid_amount: paid,
     })
 
     if (error) {
@@ -170,21 +160,19 @@ export default function Purchases() {
       return
     }
 
-    const { data: invoiceRow } = await supabase
-      .from('purchase_invoices')
-      .select('invoice_number, created_at')
-      .eq('id', invoiceId)
+    const { data: orderRow } = await supabase
+      .from('orders')
+      .select('order_number, created_at')
+      .eq('id', orderId)
       .single()
 
-    const supplierName = suppliers.find((s) => s.id === supplierId)?.name ?? 'بدون تحديد مورد'
-
-    setInvoice({
+    setOrder({
       type: 'purchase',
-      invoiceNumber: invoiceRow?.invoice_number ?? '',
-      date: invoiceRow?.created_at
-        ? new Date(invoiceRow.created_at).toLocaleString('ar-EG')
+      invoiceNumber: orderRow?.order_number ?? '',
+      date: orderRow?.created_at
+        ? new Date(orderRow.created_at).toLocaleString('ar-EG')
         : new Date().toLocaleString('ar-EG'),
-      partyName: supplierName,
+      partyName: warehouses.find((w) => w.id === warehouseId)?.name ?? '-',
       items: cart.map((item) => ({
         name: item.product_name,
         unit: item.unit_name,
@@ -192,7 +180,7 @@ export default function Purchases() {
         price: item.unit_cost,
       })),
       total,
-      paid,
+      paid: total,
     })
 
     clearDraft(DRAFT_KEY)
@@ -208,13 +196,13 @@ export default function Purchases() {
     )
   }
 
-  if (invoice) {
+  if (order) {
     return (
       <div className="page-enter p-4 md:p-6 max-w-4xl mx-auto">
         <h1 className="font-display text-xl md:text-2xl font-bold text-navy-900 mb-6 no-print">
-          تم تسجيل الفاتورة
+          تم تسجيل الطلبية
         </h1>
-        <InvoicePrint data={invoice} onNewInvoice={resetForm} />
+        <InvoicePrint data={order} onNewInvoice={resetForm} />
       </div>
     )
   }
@@ -222,7 +210,7 @@ export default function Purchases() {
   return (
     <div className="page-enter p-4 md:p-6 max-w-4xl mx-auto">
       <div className="flex items-center justify-between mb-5 md:mb-6">
-        <h1 className="font-display text-xl md:text-2xl font-bold text-navy-900">فاتورة شراء جديدة</h1>
+        <h1 className="font-display text-xl md:text-2xl font-bold text-navy-900">طلبية جديدة</h1>
         {cart.length > 0 && (
           <span className="text-xs bg-accent/10 text-accent-dark px-2.5 py-1 rounded-full font-medium">
             مسودة محفوظة تلقائيًا
@@ -231,50 +219,40 @@ export default function Purchases() {
       </div>
 
       <div className="card p-5 md:p-6 mb-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <select
-          value={warehouseId}
-          onChange={(e) => setWarehouseId(e.target.value)}
-          className="border border-border-soft rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-accent"
-        >
+        <Select value={warehouseId} onChange={(e) => setWarehouseId(e.target.value)}>
           {warehouses.map((w) => (
-            <option key={w.id} value={w.id}>{w.name}</option>
+            <option key={w.id} value={w.id}>{w.name}{w.is_default ? ' (افتراضي)' : ''}</option>
           ))}
-        </select>
-        <select
-          value={supplierId}
-          onChange={(e) => setSupplierId(e.target.value)}
+        </Select>
+        <input
+          type="text"
+          placeholder="ملاحظة على الطلبية (اختياري)"
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
           className="border border-border-soft rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-accent"
-        >
-          <option value="">بدون تحديد مورد</option>
-          {suppliers.map((s) => (
-            <option key={s.id} value={s.id}>{s.name}</option>
-          ))}
-        </select>
+        />
       </div>
 
       <div className="card p-5 md:p-6 mb-6">
         <p className="font-display font-bold text-navy-900 mb-3">إضافة صنف</p>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-3">
-          <select
-            value={picker.product_id}
-            onChange={(e) => handleProductChange(e.target.value)}
-            className="border border-border-soft rounded-xl px-3 py-2.5 col-span-2 focus:outline-none focus:ring-2 focus:ring-accent"
-          >
-            <option value="">اختر صنف...</option>
-            {products.map((p) => (
-              <option key={p.id} value={p.id}>{p.part_number} — {p.name}</option>
-            ))}
-          </select>
-          <select
+          <div className="col-span-2">
+            <Select value={picker.product_id} onChange={(e) => handleProductChange(e.target.value)}>
+              <option value="">اختر صنف...</option>
+              {products.map((p) => (
+                <option key={p.id} value={p.id}>{p.part_number} — {p.name}</option>
+              ))}
+            </Select>
+          </div>
+          <Select
             value={picker.unit_name}
             onChange={(e) => setPicker({ ...picker, unit_name: e.target.value })}
             disabled={!picker.product_id}
-            className="border border-border-soft rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-accent"
           >
             {availableUnits.map((u) => (
               <option key={u.unit_name} value={u.unit_name}>{u.unit_name}</option>
             ))}
-          </select>
+          </Select>
           <input
             type="number"
             placeholder="الكمية"
@@ -296,7 +274,7 @@ export default function Purchases() {
             className="col-span-2 flex items-center justify-center gap-2 bg-navy-900 text-white rounded-xl py-2.5 font-medium hover:bg-navy-800 transition-colors disabled:opacity-50"
           >
             <Plus size={16} />
-            أضف للفاتورة
+            أضف للطلبية
           </button>
         </div>
       </div>
@@ -340,17 +318,9 @@ export default function Purchases() {
 
       <div className="card p-5 md:p-6">
         <div className="flex justify-between items-center mb-4">
-          <span className="font-display font-bold text-lg text-navy-900">الإجمالي</span>
+          <span className="font-display font-bold text-lg text-navy-900">إجمالي تكلفة الطلبية</span>
           <span className="font-mono-data font-bold text-lg text-navy-900">{total.toFixed(2)}</span>
         </div>
-        <input
-          type="number"
-          step="0.01"
-          placeholder="المبلغ المدفوع الآن (اتركه فارغًا لو آجل بالكامل)"
-          value={paidAmount}
-          onChange={(e) => setPaidAmount(e.target.value)}
-          className="w-full border border-border-soft rounded-xl px-3 py-2.5 mb-4 focus:outline-none focus:ring-2 focus:ring-accent"
-        />
 
         {error && <p className="text-red-600 text-sm mb-3">{error}</p>}
 
@@ -360,7 +330,7 @@ export default function Purchases() {
           className="btn-primary w-full flex items-center justify-center gap-2 text-white rounded-xl py-2.5 font-medium transition-all disabled:opacity-70"
         >
           {saving && <Loader2 size={16} className="animate-spin" />}
-          {saving ? 'جاري الحفظ...' : 'تسجيل الفاتورة'}
+          {saving ? 'جاري الحفظ...' : 'تسجيل الطلبية'}
         </button>
       </div>
     </div>
