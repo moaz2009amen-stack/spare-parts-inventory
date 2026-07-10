@@ -3,7 +3,7 @@ import { NavLink, Outlet } from 'react-router-dom'
 import {
   LayoutDashboard, Package, Tags, Users, ShoppingCart,
   ClipboardList as OrdersIcon, FileText, Warehouse as WarehouseIcon,
-  ClipboardList, Undo2, Settings as SettingsIcon, LogOut, Wrench, Menu, X,
+  ClipboardList, Undo2, Settings as SettingsIcon, BarChart3, LogOut, Wrench, Menu, X,
 } from 'lucide-react'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../context/useAuth'
@@ -12,6 +12,7 @@ import GlobalSearch from './GlobalSearch'
 
 const links = [
   { to: '/dashboard', label: 'الإحصائيات', icon: LayoutDashboard },
+  { to: '/reports', label: 'التقارير', icon: BarChart3 },
   { to: '/products', label: 'الأصناف', icon: Package },
   { to: '/categories', label: 'التصنيفات', icon: Tags },
   { to: '/customers', label: 'العملاء', icon: Users },

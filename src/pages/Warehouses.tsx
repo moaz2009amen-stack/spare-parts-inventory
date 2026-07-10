@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react'
-import { Loader2, Star, Pencil, Trash2, Check, X } from 'lucide-react'
+import { Loader2, Star, Pencil, Trash2, Check, X, BarChart3 } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabaseClient'
 import type { Database } from '../lib/database.types'
 
 type Warehouse = Database['public']['Tables']['warehouses']['Row']
 
 export default function Warehouses() {
+  const navigate = useNavigate()
   const [warehouses, setWarehouses] = useState<Warehouse[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -161,6 +163,13 @@ export default function Warehouses() {
                       </div>
                     </div>
                     <div className="flex items-center gap-3 shrink-0">
+                      <button
+                        onClick={() => navigate(`/reports/warehouse/${w.id}`)}
+                        className="text-navy-700 hover:text-navy-900"
+                        title="تقرير المخزن"
+                      >
+                        <BarChart3 size={15} />
+                      </button>
                       {!w.is_default && (
                         <button
                           onClick={() => handleSetDefault(w.id)}

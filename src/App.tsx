@@ -15,6 +15,10 @@ import Returns from './pages/Returns'
 import Warehouses from './pages/Warehouses'
 import Stocktake from './pages/Stocktake'
 import Settings from './pages/Settings'
+import Reports from './pages/Reports'
+import ProductReport from './pages/ProductReport'
+import WarehouseReport from './pages/WarehouseReport'
+import OrderReport from './pages/OrderReport'
 
 function AppContent() {
   const { session, loading } = useAuth()
@@ -28,6 +32,10 @@ function AppContent() {
         <Route element={<Layout />}>
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
           <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/reports" element={<Reports />} />
+          <Route path="/reports/product/:id" element={<ProductReport />} />
+          <Route path="/reports/warehouse/:id" element={<WarehouseReport />} />
+          <Route path="/reports/order/:id" element={<OrderReport />} />
           <Route path="/products" element={<Products />} />
           <Route path="/categories" element={<Categories />} />
           <Route path="/customers" element={<Customers />} />

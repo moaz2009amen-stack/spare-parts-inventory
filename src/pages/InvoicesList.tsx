@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import { Loader2, Eye, XCircle, FileSpreadsheet } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { Loader2, Eye, XCircle, FileSpreadsheet, BarChart3 } from 'lucide-react'
 import { supabase } from '../lib/supabaseClient'
 import { exportToExcel } from '../lib/exportExcel'
 import type { Database } from '../lib/database.types'
@@ -19,6 +20,7 @@ const statusColor: Record<string, string> = {
 }
 
 export default function InvoicesList() {
+  const navigate = useNavigate()
   const [tab, setTab] = useState<'sales' | 'orders'>('sales')
   const [salesInvoices, setSalesInvoices] = useState<SaleInvoice[]>([])
   const [orders, setOrders] = useState<Order[]>([])
@@ -190,14 +192,25 @@ export default function InvoicesList() {
           >
             ← رجوع للقائمة
           </button>
-          <button
-            onClick={handleCancel}
-            disabled={cancelling}
-            className="flex items-center gap-1.5 text-sm text-red-600 hover:underline disabled:opacity-60"
-          >
-            {cancelling ? <Loader2 size={14} className="animate-spin" /> : <XCircle size={14} />}
-            إلغاء
-          </button>
+          <div className="flex items-center gap-4">
+            {viewData.type === 'purchase' && viewingId && (
+              <button
+                onClick={() => navigate(`/reports/order/${viewingId}`)}
+                className="flex items-center gap-1.5 text-sm text-navy-700 hover:text-navy-900"
+              >
+                <BarChart3 size={14} />
+                تقرير الطلبية
+              </button>
+            )}
+            <button
+              onClick={handleCancel}
+              disabled={cancelling}
+              className="flex items-center gap-1.5 text-sm text-red-600 hover:underline disabled:opacity-60"
+            >
+              {cancelling ? <Loader2 size={14} className="animate-spin" /> : <XCircle size={14} />}
+              إلغاء
+            </button>
+          </div>
         </div>
         {error && <p className="no-print text-red-600 text-sm mb-3">{error}</p>}
         <InvoicePrint data={viewData} onNewInvoice={() => { setViewData(null); setViewingId(null) }} />

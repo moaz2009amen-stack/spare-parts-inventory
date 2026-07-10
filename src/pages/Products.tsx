@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import { ChevronDown, ChevronUp, Loader2 } from 'lucide-react'
+import { ChevronDown, ChevronUp, Loader2, BarChart3 } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabaseClient'
 import { loadDraft, saveDraft, clearDraft } from '../lib/draft'
 import Select from '../components/Select'
@@ -27,6 +28,7 @@ const emptyForm: ProductForm = {
 }
 
 export default function Products() {
+  const navigate = useNavigate()
   const [products, setProducts] = useState<Product[]>([])
   const [categories, setCategories] = useState<Category[]>([])
   const [loading, setLoading] = useState(true)
@@ -197,12 +199,13 @@ export default function Products() {
                 <th className="p-3 font-display font-medium whitespace-nowrap">سعر البيع</th>
                 <th className="p-3 font-display font-medium whitespace-nowrap">التكلفة</th>
                 <th className="p-3"></th>
+                <th className="p-3"></th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={6} className="p-6 text-center text-slate-500">
+                  <td colSpan={7} className="p-6 text-center text-slate-500">
                     <div className="flex items-center justify-center gap-2">
                       <Loader2 size={16} className="animate-spin" />
                       جاري التحميل...
@@ -210,7 +213,7 @@ export default function Products() {
                   </td>
                 </tr>
               ) : products.length === 0 ? (
-                <tr><td colSpan={6} className="p-6 text-center text-slate-500">لا توجد أصناف بعد</td></tr>
+                <tr><td colSpan={7} className="p-6 text-center text-slate-500">لا توجد أصناف بعد</td></tr>
               ) : (
                 products.map((p) => (
                   <>
@@ -223,6 +226,15 @@ export default function Products() {
                       <td className="p-3 whitespace-nowrap">{categoryName(p.category_id)}</td>
                       <td className="p-3 font-mono-data whitespace-nowrap">{p.sale_price}</td>
                       <td className="p-3 font-mono-data whitespace-nowrap">{p.cost_price}</td>
+                      <td className="p-3 text-left whitespace-nowrap">
+                        <button
+                          onClick={() => navigate(`/reports/product/${p.id}`)}
+                          className="flex items-center gap-1 text-sm text-navy-700 hover:text-navy-900"
+                        >
+                          <BarChart3 size={14} />
+                          تقرير
+                        </button>
+                      </td>
                       <td className="p-3 text-left">
                         <button
                           onClick={() => setExpandedId(expandedId === p.id ? null : p.id)}
@@ -235,7 +247,7 @@ export default function Products() {
                     </tr>
                     {expandedId === p.id && (
                       <tr>
-                        <td colSpan={6} className="p-0">
+                        <td colSpan={7} className="p-0">
                           <div className="panel-enter">
                             <ProductUnitsPanel productId={p.id} />
                           </div>
