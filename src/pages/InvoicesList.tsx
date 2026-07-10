@@ -9,21 +9,13 @@ type SaleInvoice = Database['public']['Tables']['sales_invoices']['Row']
 type Order = Database['public']['Tables']['orders']['Row']
 
 const statusLabel: Record<string, string> = {
-  paid: 'مدفوعة',
-  partial: 'مدفوعة جزئيًا',
-  unpaid: 'آجلة',
-  pending: 'قيد الانتظار',
-  received: 'مستلمة',
-  cancelled: 'ملغاة',
+  paid: 'مدفوعة', partial: 'مدفوعة جزئيًا', unpaid: 'آجلة',
+  pending: 'قيد الانتظار', received: 'مستلمة', cancelled: 'ملغاة',
 }
 
 const statusColor: Record<string, string> = {
-  paid: 'text-emerald-600',
-  partial: 'text-accent-dark',
-  unpaid: 'text-red-600',
-  pending: 'text-accent-dark',
-  received: 'text-emerald-600',
-  cancelled: 'text-red-600',
+  paid: 'text-emerald-600', partial: 'text-accent-dark', unpaid: 'text-red-600',
+  pending: 'text-accent-dark', received: 'text-emerald-600', cancelled: 'text-red-600',
 }
 
 export default function InvoicesList() {
@@ -33,6 +25,7 @@ export default function InvoicesList() {
   const [customerNames, setCustomerNames] = useState<Record<string, string>>({})
   const [warehouseNames, setWarehouseNames] = useState<Record<string, string>>({})
   const [productNames, setProductNames] = useState<Record<string, string>>({})
+  const [userNames, setUserNames] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState(true)
   const [viewData, setViewData] = useState<InvoicePrintData | null>(null)
   const [viewingId, setViewingId] = useState<string | null>(null)
@@ -41,18 +34,20 @@ export default function InvoicesList() {
   const [error, setError] = useState('')
 
   const loadAll = async () => {
-    const [s, o, c, wh, prod] = await Promise.all([
+    const [s, o, c, wh, prod, users] = await Promise.all([
       supabase.from('sales_invoices').select('*').order('created_at', { ascending: false }),
       supabase.from('orders').select('*').order('created_at', { ascending: false }),
       supabase.from('customers').select('id, name'),
       supabase.from('warehouses').select('id, name'),
       supabase.from('products').select('id, name'),
+      supabase.from('users').select('id, full_name'),
     ])
     if (s.data) setSalesInvoices(s.data)
     if (o.data) setOrders(o.data)
     if (c.data) setCustomerNames(Object.fromEntries(c.data.map((x) => [x.id, x.name])))
     if (wh.data) setWarehouseNames(Object.fromEntries(wh.data.map((x) => [x.id, x.name])))
     if (prod.data) setProductNames(Object.fromEntries(prod.data.map((x) => [x.id, x.name])))
+    if (users.data) setUserNames(Object.fromEntries(users.data.map((x) => [x.id, x.full_name])))
     setLoading(false)
   }
 
@@ -76,12 +71,15 @@ export default function InvoicesList() {
       invoiceNumber: invoice.invoice_number,
       date: new Date(invoice.created_at).toLocaleString('ar-EG'),
       partyName: customerNames[invoice.customer_id ?? ''] ?? 'عميل نقدي',
+      employeeName: invoice.created_by ? userNames[invoice.created_by] : undefined,
       items: (items ?? []).map((it) => ({
         name: productNames[it.product_id] ?? it.product_id,
         unit: it.unit_name,
         quantity: it.quantity,
         price: it.unit_price,
       })),
+      subtotal: invoice.total_amount + (invoice.discount_amount ?? 0),
+      discount: invoice.discount_amount ?? 0,
       total: invoice.total_amount,
       paid: invoice.paid_amount,
     })
@@ -101,12 +99,15 @@ export default function InvoicesList() {
       invoiceNumber: order.order_number,
       date: new Date(order.created_at).toLocaleString('ar-EG'),
       partyName: warehouseNames[order.warehouse_id] ?? '-',
+      employeeName: order.created_by ? userNames[order.created_by] : undefined,
       items: (items ?? []).map((it) => ({
         name: productNames[it.product_id] ?? it.product_id,
         unit: it.unit_name,
         quantity: it.quantity,
         price: it.unit_cost,
       })),
+      subtotal: order.total_cost + (order.discount_amount ?? 0),
+      discount: order.discount_amount ?? 0,
       total: order.total_cost,
       paid: order.total_cost,
     })
@@ -154,7 +155,9 @@ export default function InvoicesList() {
         ? salesInvoices.map((inv) => ({
             'رقم الفاتورة': inv.invoice_number,
             'العميل': customerNames[inv.customer_id ?? ''] ?? 'عميل نقدي',
+            'الموظف': inv.created_by ? userNames[inv.created_by] ?? '-' : '-',
             'التاريخ': new Date(inv.created_at).toLocaleDateString('ar-EG'),
+            'الخصم': inv.discount_amount ?? 0,
             'الإجمالي': inv.total_amount,
             'المدفوع': inv.paid_amount,
             'الحالة': statusLabel[inv.payment_status],
@@ -162,7 +165,9 @@ export default function InvoicesList() {
         : orders.map((o) => ({
             'رقم الطلبية': o.order_number,
             'المخزن': warehouseNames[o.warehouse_id] ?? '-',
+            'الموظف': o.created_by ? userNames[o.created_by] ?? '-' : '-',
             'التاريخ': new Date(o.created_at).toLocaleDateString('ar-EG'),
+            'الخصم': o.discount_amount ?? 0,
             'التكلفة': o.total_cost,
             'الحالة': statusLabel[o.status],
             'ملاحظات': o.notes ?? '',

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Loader2, Trash2, Plus } from 'lucide-react'
 import { supabase } from '../lib/supabaseClient'
 import { loadDraft, saveDraft, clearDraft } from '../lib/draft'
+import { useAuth } from '../context/useAuth'
 import Select from '../components/Select'
 import type { Database } from '../lib/database.types'
 import InvoicePrint, { type InvoicePrintData } from '../components/InvoicePrint'
@@ -24,15 +25,17 @@ interface SalesDraft {
   warehouseId: string
   customerId: string
   paidAmount: string
+  discount: string
   cart: CartItem[]
 }
 
 const DRAFT_KEY = 'sales-invoice'
 const draft = loadDraft<SalesDraft>(DRAFT_KEY, {
-  warehouseId: '', customerId: '', paidAmount: '', cart: [],
+  warehouseId: '', customerId: '', paidAmount: '', discount: '', cart: [],
 })
 
 export default function Sales() {
+  const { profile } = useAuth()
   const [allProducts, setAllProducts] = useState<Product[]>([])
   const [inWarehouseProductIds, setInWarehouseProductIds] = useState<Set<string>>(new Set())
   const [units, setUnits] = useState<ProductUnit[]>([])
@@ -46,6 +49,7 @@ export default function Sales() {
   const [warehouseId, setWarehouseId] = useState(draft.warehouseId)
   const [customerId, setCustomerId] = useState(draft.customerId)
   const [paidAmount, setPaidAmount] = useState(draft.paidAmount)
+  const [discount, setDiscount] = useState(draft.discount)
   const [cart, setCart] = useState<CartItem[]>(draft.cart)
 
   const [picker, setPicker] = useState({
@@ -56,8 +60,8 @@ export default function Sales() {
   })
 
   useEffect(() => {
-    saveDraft<SalesDraft>(DRAFT_KEY, { warehouseId, customerId, paidAmount, cart })
-  }, [warehouseId, customerId, paidAmount, cart])
+    saveDraft<SalesDraft>(DRAFT_KEY, { warehouseId, customerId, paidAmount, discount, cart })
+  }, [warehouseId, customerId, paidAmount, discount, cart])
 
   useEffect(() => {
     let cancelled = false
@@ -86,8 +90,6 @@ export default function Sales() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // لازم نعرف بس الأصناف اللي فعلًا موجودة في المخزن المختار (يعني
-  // ليها سجل مخزون فيه)، عشان منقدرش نبيع صنف مش موجود في المخزن ده
   useEffect(() => {
     if (!warehouseId) return
     let cancelled = false
@@ -145,12 +147,15 @@ export default function Sales() {
     setCart(cart.filter((_, i) => i !== index))
   }
 
-  const total = cart.reduce((sum, item) => sum + item.quantity * item.unit_price, 0)
+  const subtotal = cart.reduce((sum, item) => sum + item.quantity * item.unit_price, 0)
+  const discountValue = Number(discount) || 0
+  const total = Math.max(subtotal - discountValue, 0)
 
   const resetForm = () => {
     setInvoice(null)
     setCart([])
     setPaidAmount('')
+    setDiscount('')
     setCustomerId('')
     setError('')
     clearDraft(DRAFT_KEY)
@@ -183,6 +188,7 @@ export default function Sales() {
         unit_price: item.unit_price,
       })),
       p_paid_amount: paid,
+      p_discount_amount: discountValue,
     })
 
     if (error) {
@@ -206,12 +212,15 @@ export default function Sales() {
         ? new Date(invoiceRow.created_at).toLocaleString('ar-EG')
         : new Date().toLocaleString('ar-EG'),
       partyName: customerName,
+      employeeName: profile?.full_name,
       items: cart.map((item) => ({
         name: item.product_name,
         unit: item.unit_name,
         quantity: item.quantity,
         price: item.unit_price,
       })),
+      subtotal,
+      discount: discountValue,
       total,
       paid,
     })
@@ -360,8 +369,23 @@ export default function Sales() {
       </div>
 
       <div className="card p-5 md:p-6">
+        <div className="flex justify-between items-center mb-2 text-sm text-slate-500">
+          <span>الإجمالي قبل الخصم</span>
+          <span className="font-mono-data">{subtotal.toFixed(2)}</span>
+        </div>
         <div className="flex justify-between items-center mb-4">
-          <span className="font-display font-bold text-lg text-navy-900">الإجمالي</span>
+          <label className="text-sm text-slate-500">الخصم</label>
+          <input
+            type="number"
+            step="0.01"
+            value={discount}
+            onChange={(e) => setDiscount(e.target.value)}
+            placeholder="0"
+            className="w-32 border border-border-soft rounded-xl px-3 py-1.5 font-mono-data text-left focus:outline-none focus:ring-2 focus:ring-accent"
+          />
+        </div>
+        <div className="flex justify-between items-center mb-4 border-t border-border-soft pt-3">
+          <span className="font-display font-bold text-lg text-navy-900">الإجمالي بعد الخصم</span>
           <span className="font-mono-data font-bold text-lg text-navy-900">{total.toFixed(2)}</span>
         </div>
         <input

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Loader2, Trash2, Plus } from 'lucide-react'
 import { supabase } from '../lib/supabaseClient'
 import { loadDraft, saveDraft, clearDraft } from '../lib/draft'
+import { useAuth } from '../context/useAuth'
 import Select from '../components/Select'
 import type { Database } from '../lib/database.types'
 import InvoicePrint, { type InvoicePrintData } from '../components/InvoicePrint'
@@ -22,13 +23,15 @@ interface CartItem {
 interface OrderDraft {
   warehouseId: string
   notes: string
+  discount: string
   cart: CartItem[]
 }
 
 const DRAFT_KEY = 'new-order'
-const draft = loadDraft<OrderDraft>(DRAFT_KEY, { warehouseId: '', notes: '', cart: [] })
+const draft = loadDraft<OrderDraft>(DRAFT_KEY, { warehouseId: '', notes: '', discount: '', cart: [] })
 
 export default function Orders() {
+  const { profile } = useAuth()
   const [products, setProducts] = useState<Product[]>([])
   const [units, setUnits] = useState<ProductUnit[]>([])
   const [warehouses, setWarehouses] = useState<Warehouse[]>([])
@@ -39,6 +42,7 @@ export default function Orders() {
 
   const [warehouseId, setWarehouseId] = useState(draft.warehouseId)
   const [notes, setNotes] = useState(draft.notes)
+  const [discount, setDiscount] = useState(draft.discount)
   const [cart, setCart] = useState<CartItem[]>(draft.cart)
 
   const [picker, setPicker] = useState({
@@ -49,8 +53,8 @@ export default function Orders() {
   })
 
   useEffect(() => {
-    saveDraft<OrderDraft>(DRAFT_KEY, { warehouseId, notes, cart })
-  }, [warehouseId, notes, cart])
+    saveDraft<OrderDraft>(DRAFT_KEY, { warehouseId, notes, discount, cart })
+  }, [warehouseId, notes, discount, cart])
 
   useEffect(() => {
     let cancelled = false
@@ -118,12 +122,15 @@ export default function Orders() {
     setCart(cart.filter((_, i) => i !== index))
   }
 
-  const total = cart.reduce((sum, item) => sum + item.quantity * item.unit_cost, 0)
+  const subtotal = cart.reduce((sum, item) => sum + item.quantity * item.unit_cost, 0)
+  const discountValue = Number(discount) || 0
+  const total = Math.max(subtotal - discountValue, 0)
 
   const resetForm = () => {
     setOrder(null)
     setCart([])
     setNotes('')
+    setDiscount('')
     setError('')
     clearDraft(DRAFT_KEY)
   }
@@ -152,6 +159,7 @@ export default function Orders() {
         quantity: item.quantity,
         unit_cost: item.unit_cost,
       })),
+      p_discount_amount: discountValue,
     })
 
     if (error) {
@@ -173,12 +181,15 @@ export default function Orders() {
         ? new Date(orderRow.created_at).toLocaleString('ar-EG')
         : new Date().toLocaleString('ar-EG'),
       partyName: warehouses.find((w) => w.id === warehouseId)?.name ?? '-',
+      employeeName: profile?.full_name,
       items: cart.map((item) => ({
         name: item.product_name,
         unit: item.unit_name,
         quantity: item.quantity,
         price: item.unit_cost,
       })),
+      subtotal,
+      discount: discountValue,
       total,
       paid: total,
     })
@@ -317,7 +328,22 @@ export default function Orders() {
       </div>
 
       <div className="card p-5 md:p-6">
+        <div className="flex justify-between items-center mb-2 text-sm text-slate-500">
+          <span>الإجمالي قبل الخصم</span>
+          <span className="font-mono-data">{subtotal.toFixed(2)}</span>
+        </div>
         <div className="flex justify-between items-center mb-4">
+          <label className="text-sm text-slate-500">الخصم</label>
+          <input
+            type="number"
+            step="0.01"
+            value={discount}
+            onChange={(e) => setDiscount(e.target.value)}
+            placeholder="0"
+            className="w-32 border border-border-soft rounded-xl px-3 py-1.5 font-mono-data text-left focus:outline-none focus:ring-2 focus:ring-accent"
+          />
+        </div>
+        <div className="flex justify-between items-center mb-4 border-t border-border-soft pt-3">
           <span className="font-display font-bold text-lg text-navy-900">إجمالي تكلفة الطلبية</span>
           <span className="font-mono-data font-bold text-lg text-navy-900">{total.toFixed(2)}</span>
         </div>

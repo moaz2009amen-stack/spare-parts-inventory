@@ -11,8 +11,10 @@ import Statement from './pages/Statement'
 import Sales from './pages/Sales'
 import Orders from './pages/Orders'
 import InvoicesList from './pages/InvoicesList'
+import Returns from './pages/Returns'
 import Warehouses from './pages/Warehouses'
 import Stocktake from './pages/Stocktake'
+import Settings from './pages/Settings'
 
 function AppContent() {
   const { session, loading } = useAuth()
@@ -33,8 +35,10 @@ function AppContent() {
           <Route path="/sales" element={<Sales />} />
           <Route path="/orders" element={<Orders />} />
           <Route path="/invoices" element={<InvoicesList />} />
+          <Route path="/returns" element={<Returns />} />
           <Route path="/warehouses" element={<Warehouses />} />
           <Route path="/stocktake" element={<Stocktake />} />
+          <Route path="/settings" element={<Settings />} />
         </Route>
       </Routes>
     </BrowserRouter>

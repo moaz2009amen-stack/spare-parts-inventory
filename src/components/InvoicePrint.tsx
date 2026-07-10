@@ -1,4 +1,6 @@
+import { useEffect, useState } from 'react'
 import { Printer, FilePlus } from 'lucide-react'
+import { supabase } from '../lib/supabaseClient'
 
 export interface InvoicePrintItem {
   name: string
@@ -12,9 +14,19 @@ export interface InvoicePrintData {
   invoiceNumber: string
   date: string
   partyName: string
+  employeeName?: string
   items: InvoicePrintItem[]
+  subtotal?: number
+  discount?: number
   total: number
   paid: number
+}
+
+interface CompanySettings {
+  company_name: string
+  phone: string | null
+  logo_data_url: string | null
+  invoice_footer_message: string | null
 }
 
 export default function InvoicePrint({
@@ -24,7 +36,23 @@ export default function InvoicePrint({
   data: InvoicePrintData
   onNewInvoice: () => void
 }) {
+  const [settings, setSettings] = useState<CompanySettings | null>(null)
   const remaining = data.total - data.paid
+  const subtotal = data.subtotal ?? data.total
+  const discount = data.discount ?? 0
+
+  useEffect(() => {
+    let cancelled = false
+    supabase
+      .from('company_settings')
+      .select('company_name, phone, logo_data_url, invoice_footer_message')
+      .eq('id', true)
+      .single()
+      .then(({ data }) => {
+        if (!cancelled && data) setSettings(data)
+      })
+    return () => { cancelled = true }
+  }, [])
 
   return (
     <div className="card p-5 md:p-8">
@@ -47,13 +75,19 @@ export default function InvoicePrint({
 
       <div className="print-area max-w-2xl mx-auto">
         <div className="grid grid-cols-2 gap-2 items-start border-b-2 border-navy-900 pb-4 mb-5">
-          <div>
-            <h2 className="font-display font-extrabold text-lg md:text-xl text-navy-900">
-              {data.type === 'sale' ? 'فاتورة بيع' : 'طلبية شراء'}
-            </h2>
-            <p className="text-xs md:text-sm text-slate-500 mt-1">
-              نظام إدارة مخزن قطع غيار السيارات
-            </p>
+          <div className="flex items-start gap-3">
+            {settings?.logo_data_url && (
+              <img src={settings.logo_data_url} alt="شعار الشركة" className="w-12 h-12 object-contain rounded" />
+            )}
+            <div>
+              <h2 className="font-display font-extrabold text-lg md:text-xl text-navy-900">
+                {settings?.company_name ?? 'نظام إدارة المخزن'}
+              </h2>
+              <p className="text-xs md:text-sm text-slate-500 mt-1">
+                {data.type === 'sale' ? 'فاتورة بيع' : 'طلبية شراء'}
+                {settings?.phone ? ` — ${settings.phone}` : ''}
+              </p>
+            </div>
           </div>
           <div className="text-left">
             <p className="font-mono-data font-bold text-sm md:text-base">{data.invoiceNumber}</p>
@@ -61,9 +95,17 @@ export default function InvoicePrint({
           </div>
         </div>
 
-        <div className="flex justify-between items-center bg-surface rounded-xl px-4 py-3 mb-5 text-sm">
-          <span className="text-slate-500">{data.type === 'sale' ? 'العميل' : 'المخزن'}</span>
-          <span className="font-medium text-navy-900">{data.partyName}</span>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-5">
+          <div className="flex justify-between items-center bg-surface rounded-xl px-4 py-3 text-sm">
+            <span className="text-slate-500">{data.type === 'sale' ? 'العميل' : 'المخزن'}</span>
+            <span className="font-medium text-navy-900">{data.partyName}</span>
+          </div>
+          {data.employeeName && (
+            <div className="flex justify-between items-center bg-surface rounded-xl px-4 py-3 text-sm">
+              <span className="text-slate-500">الموظف</span>
+              <span className="font-medium text-navy-900">{data.employeeName}</span>
+            </div>
+          )}
         </div>
 
         <div className="table-scroll mb-5">
@@ -93,8 +135,20 @@ export default function InvoicePrint({
           </table>
         </div>
 
-        <div className="flex justify-start">
+        <div className="flex justify-start mb-5">
           <div className="w-full sm:w-72 text-sm border border-border-soft rounded-xl overflow-hidden">
+            {discount > 0 && (
+              <>
+                <div className="flex justify-between px-4 py-2.5 border-b border-border-soft">
+                  <span className="text-slate-500">الإجمالي قبل الخصم</span>
+                  <span className="font-mono-data">{subtotal.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between px-4 py-2.5 border-b border-border-soft text-red-600">
+                  <span>الخصم</span>
+                  <span className="font-mono-data">-{discount.toFixed(2)}</span>
+                </div>
+              </>
+            )}
             <div className="flex justify-between px-4 py-2.5 border-b border-border-soft">
               <span className="text-slate-500">الإجمالي</span>
               <span className="font-mono-data font-medium">{data.total.toFixed(2)}</span>
@@ -118,6 +172,12 @@ export default function InvoicePrint({
             )}
           </div>
         </div>
+
+        {settings?.invoice_footer_message && (
+          <p className="text-center text-xs text-slate-500 border-t border-border-soft pt-4">
+            {settings.invoice_footer_message}
+          </p>
+        )}
       </div>
     </div>
   )
