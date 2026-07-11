@@ -146,9 +146,13 @@ export default function Settings() {
 
   const handleToggle = async (key: 'notify_low_stock' | 'notify_debts') => {
     if (!settings) return
-    const updated = { ...settings, [key]: !settings[key] }
-    setSettings(updated)
-    await supabase.from('company_settings').update({ [key]: updated[key] }).eq('id', true)
+    const newValue = !settings[key]
+    setSettings({ ...settings, [key]: newValue })
+    if (key === 'notify_low_stock') {
+      await supabase.from('company_settings').update({ notify_low_stock: newValue }).eq('id', true)
+    } else {
+      await supabase.from('company_settings').update({ notify_debts: newValue }).eq('id', true)
+    }
   }
 
   const handleBackup = async () => {

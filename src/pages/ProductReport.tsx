@@ -13,6 +13,7 @@ export default function ProductReport() {
   const [stockByWarehouse, setStockByWarehouse] = useState<{ name: string; qty: number }[]>([])
   const [totalSoldQty, setTotalSoldQty] = useState(0)
   const [totalRevenue, setTotalRevenue] = useState(0)
+  const [totalProfit, setTotalProfit] = useState(0)
   const [salesHistory, setSalesHistory] = useState<{ date: string; invoice: string; qty: number; price: number }[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -38,6 +39,7 @@ export default function ProductReport() {
       const list = items.data ?? []
       setTotalSoldQty(list.reduce((s, i) => s + Number(i.quantity), 0))
       setTotalRevenue(list.reduce((s, i) => s + i.quantity * i.unit_price, 0))
+      setTotalProfit(list.reduce((s, i) => s + (i.quantity * i.unit_price - (i.actual_cost ?? 0)), 0))
       setSalesHistory(
         list
           .map((i) => {
@@ -89,9 +91,13 @@ export default function ProductReport() {
           <p className="text-xs text-slate-500 mb-1">إجمالي الكمية المباعة</p>
           <p className="font-mono-data font-bold text-lg text-navy-900">{totalSoldQty}</p>
         </div>
-        <div className="card p-4 col-span-2 sm:col-span-2">
-          <p className="text-xs text-slate-500 mb-1">إجمالي الإيراد من الصنف</p>
+        <div className="card p-4">
+          <p className="text-xs text-slate-500 mb-1">إجمالي الإيراد</p>
           <p className="font-mono-data font-bold text-lg text-navy-900">{totalRevenue.toFixed(2)}</p>
+        </div>
+        <div className="card p-4">
+          <p className="text-xs text-slate-500 mb-1">الربح الدقيق</p>
+          <p className="font-mono-data font-bold text-lg text-emerald-600">{totalProfit.toFixed(2)}</p>
         </div>
       </div>
 

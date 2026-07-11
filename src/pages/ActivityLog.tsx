@@ -9,16 +9,6 @@ export default function ActivityLogPage() {
   const [logs, setLogs] = useState<ActivityLog[]>([])
   const [loading, setLoading] = useState(true)
 
-  const loadLogs = async () => {
-    const { data } = await supabase
-      .from('activity_log')
-      .select('*')
-      .order('created_at', { ascending: false })
-      .limit(200)
-    setLogs(data ?? [])
-    setLoading(false)
-  }
-
   useEffect(() => {
     let cancelled = false
     supabase

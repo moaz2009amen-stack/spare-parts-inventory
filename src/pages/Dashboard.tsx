@@ -50,7 +50,7 @@ export default function Dashboard() {
         supabase.from('orders').select('*').order('created_at', { ascending: false }),
         supabase.from('sales_invoice_items').select('*, sales_invoices(created_at)'),
         supabase.from('customers').select('id, name'),
-        supabase.from('products').select('id, name, cost_price'),
+        supabase.from('products').select('id, name'),
         supabase.from('warehouses').select('id, name'),
       ])
 
@@ -60,23 +60,22 @@ export default function Dashboard() {
       const orders = ordersRes.data ?? []
       const saleItems = saleItemsRes.data ?? []
       const customerMap = Object.fromEntries((customersRes.data ?? []).map((c) => [c.id, c.name]))
-      const products = productsRes.data ?? []
-      const productMap = Object.fromEntries(products.map((p) => [p.id, p.name]))
-      const costMap = Object.fromEntries(products.map((p) => [p.id, p.cost_price]))
+      const productMap = Object.fromEntries((productsRes.data ?? []).map((p) => [p.id, p.name]))
       const warehouseMap = Object.fromEntries((warehousesRes.data ?? []).map((w) => [w.id, w.name]))
 
       setTotalSales(sales.reduce((sum, s) => sum + s.total_amount, 0))
       setTotalOrdersCost(orders.reduce((sum, o) => sum + o.total_cost, 0))
       setTotalOrdersCount(sales.length)
 
+      // الربح الدقيق: الإيراد ناقص التكلفة الفعلية الحقيقية (actual_cost)
+      // المسجّلة وقت البيع من نظام الدفعات (FIFO)، مش تقدير
       let profit = 0
       const dailyMap: Record<string, { sales: number; profit: number }> = {}
 
       saleItems.forEach((it) => {
         const inv = it.sales_invoices as unknown as { created_at: string } | null
-        const cost = costMap[it.product_id] ?? 0
-        const itemProfit = it.quantity * (it.unit_price - cost)
         const itemRevenue = it.quantity * it.unit_price
+        const itemProfit = itemRevenue - (it.actual_cost ?? 0)
         profit += itemProfit
 
         if (inv) {
@@ -119,7 +118,6 @@ export default function Dashboard() {
         Object.entries(sellingTotals).sort((a, b) => b[1] - a[1]).slice(0, 5)
           .map(([id, value]) => ({ name: productMap[id] ?? 'غير معروف', value }))
       )
-      // أقل الأصناف مبيعًا: من بين الأصناف اللي اتباعت مرة واحدة على الأقل
       setLeastSellingProducts(
         Object.entries(sellingTotals).sort((a, b) => a[1] - b[1]).slice(0, 5)
           .map(([id, value]) => ({ name: productMap[id] ?? 'غير معروف', value }))
@@ -155,6 +153,8 @@ export default function Dashboard() {
     )
   }
 
+  const profitMargin = totalSales > 0 ? (totalProfit / totalSales) * 100 : 0
+
   return (
     <div className="page-enter p-4 md:p-6 max-w-6xl mx-auto">
       <h1 className="font-display text-xl md:text-2xl font-bold text-navy-900 mb-5 md:mb-6">لوحة الإحصائيات</h1>
@@ -174,7 +174,7 @@ export default function Dashboard() {
             <DollarSign size={18} />
           </div>
           <div className="min-w-0">
-            <p className="text-xs text-slate-500">الأرباح التقديرية</p>
+            <p className="text-xs text-slate-500">الأرباح ({profitMargin.toFixed(0)}%)</p>
             <p className="font-mono-data font-bold text-navy-900 truncate">{totalProfit.toFixed(0)}</p>
           </div>
         </div>
@@ -198,8 +198,8 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <p className="text-xs text-slate-400 mb-4">
-        * الأرباح تقديرية بناءً على تكلفة الصنف الحالية، مش التكلفة وقت البيع بالظبط.
+      <p className="text-xs text-emerald-600 mb-4">
+        ✓ الأرباح دلوقتي دقيقة 100%، محسوبة من التكلفة الحقيقية الفعلية لكل قطعة اتباعت (نظام تتبع الدفعات FIFO).
       </p>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">

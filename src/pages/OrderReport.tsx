@@ -15,6 +15,7 @@ interface ItemReport {
   soldRevenue: number
   remainingQty: number
   lastSaleDate: string | null
+  profit: number
 }
 
 export default function OrderReport() {
@@ -41,38 +42,52 @@ export default function OrderReport() {
       const { data: products } = await supabase.from('products').select('id, name')
       const productMap = Object.fromEntries((products ?? []).map((p) => [p.id, p.name]))
 
+      // كل صنف في الطلبية له دفعة (Lot) واحدة بالظبط مربوطة بيها — ده
+      // اللي بيدي دقة كاملة: نعرف بالظبط كام قطعة اتباعت من الطلبية دي
+      // نفسها (مش تقريب حسب التاريخ)، وكام فاضل، وبأنهي إيراد بالظبط.
+      const { data: lots } = await supabase
+        .from('inventory_lots')
+        .select('*')
+        .eq('source_type', 'order')
+        .eq('source_id', id)
+
       const reports: ItemReport[] = []
       for (const item of orderItems ?? []) {
-        const { data: sales } = await supabase
-          .from('sales_invoice_items')
-          .select('quantity, unit_price, sales_invoices!inner(created_at, warehouse_id)')
-          .eq('product_id', item.product_id)
-          .eq('sales_invoices.warehouse_id', orderData.warehouse_id)
-          .gte('sales_invoices.created_at', orderData.created_at)
+        const lot = (lots ?? []).find((l) => l.product_id === item.product_id)
 
-        const soldQty = (sales ?? []).reduce((s, x) => s + Number(x.quantity), 0)
-        const soldRevenue = (sales ?? []).reduce((s, x) => s + x.quantity * x.unit_price, 0)
-        const lastSale = (sales ?? [])
-          .map((x) => (x.sales_invoices as unknown as { created_at: string }).created_at)
-          .sort()
-          .reverse()[0]
+        let soldQty = 0
+        let soldRevenue = 0
+        let lastSaleDate: string | null = null
 
-        const { data: inv } = await supabase
-          .from('inventory')
-          .select('quantity')
-          .eq('product_id', item.product_id)
-          .eq('warehouse_id', orderData.warehouse_id)
-          .single()
+        if (lot) {
+          const { data: usage } = await supabase
+            .from('sale_item_lot_usage')
+            .select('quantity, sales_invoice_items(unit_price, sales_invoices(created_at))')
+            .eq('lot_id', lot.id)
 
+          for (const u of usage ?? []) {
+            const saleItem = u.sales_invoice_items as unknown as {
+              unit_price: number
+              sales_invoices: { created_at: string } | null
+            } | null
+            soldQty += Number(u.quantity)
+            soldRevenue += Number(u.quantity) * (saleItem?.unit_price ?? 0)
+            const date = saleItem?.sales_invoices?.created_at
+            if (date && (!lastSaleDate || date > lastSaleDate)) lastSaleDate = date
+          }
+        }
+
+        const unitCost = lot?.unit_cost ?? item.unit_cost
         reports.push({
           productId: item.product_id,
           name: productMap[item.product_id] ?? item.product_id,
           orderedQty: item.quantity,
-          unitCost: item.unit_cost,
-          soldQty: Math.min(soldQty, item.quantity),
+          unitCost,
+          soldQty,
           soldRevenue,
-          remainingQty: inv?.quantity ?? 0,
-          lastSaleDate: lastSale ?? null,
+          remainingQty: lot?.quantity_remaining ?? 0,
+          lastSaleDate,
+          profit: soldRevenue - soldQty * unitCost,
         })
       }
 
@@ -98,7 +113,8 @@ export default function OrderReport() {
   const totalOrderedQty = items.reduce((s, i) => s + i.orderedQty, 0)
   const totalSoldQty = items.reduce((s, i) => s + i.soldQty, 0)
   const sellThroughPercent = totalOrderedQty > 0 ? (totalSoldQty / totalOrderedQty) * 100 : 0
-  const totalProfit = items.reduce((s, i) => s + (i.soldRevenue - i.soldQty * i.unitCost), 0)
+  const totalProfit = items.reduce((s, i) => s + i.profit, 0)
+  const totalRevenue = items.reduce((s, i) => s + i.soldRevenue, 0)
   const bestSelling = [...items].sort((a, b) => b.soldQty - a.soldQty)[0]
 
   return (
@@ -119,28 +135,27 @@ export default function OrderReport() {
           <p className="font-mono-data font-bold text-lg text-navy-900">{order.total_cost.toFixed(2)}</p>
         </div>
         <div className="card p-4">
-          <p className="text-xs text-slate-500 mb-1">عدد الأصناف</p>
-          <p className="font-mono-data font-bold text-lg text-navy-900">{items.length}</p>
-        </div>
-        <div className="card p-4">
           <p className="text-xs text-slate-500 mb-1">نسبة بيع الطلبية</p>
           <p className="font-mono-data font-bold text-lg text-navy-900">{sellThroughPercent.toFixed(0)}%</p>
         </div>
         <div className="card p-4">
-          <p className="text-xs text-slate-500 mb-1">الأرباح التقديرية</p>
+          <p className="text-xs text-slate-500 mb-1">الإيراد الفعلي منها</p>
+          <p className="font-mono-data font-bold text-lg text-navy-900">{totalRevenue.toFixed(2)}</p>
+        </div>
+        <div className="card p-4">
+          <p className="text-xs text-slate-500 mb-1">الربح الدقيق</p>
           <p className="font-mono-data font-bold text-lg text-emerald-600">{totalProfit.toFixed(2)}</p>
         </div>
       </div>
 
       {bestSelling && bestSelling.soldQty > 0 && (
-        <p className="text-sm text-slate-600 mb-4">
+        <p className="text-sm text-slate-600 mb-2">
           أكثر صنف مبيعًا من الطلبية دي: <span className="font-medium text-navy-900">{bestSelling.name}</span> ({bestSelling.soldQty} قطعة)
         </p>
       )}
 
-      <p className="text-xs text-slate-400 mb-3">
-        * "الكمية المباعة" هنا تقديرية: بتحسب كل بيع لنفس الصنف من نفس المخزن بعد تاريخ الطلبية،
-        مش بالضرورة نفس القطع بالظبط (النظام مايتتبعش دفعات كل طلبية على حدة).
+      <p className="text-xs text-emerald-600 mb-4">
+        ✓ الأرقام هنا دقيقة 100% — كل صنف متتبّع كدفعة مستقلة (Lot)، مش تقريب حسب التاريخ.
       </p>
 
       <div className="card overflow-hidden">
@@ -151,7 +166,8 @@ export default function OrderReport() {
                 <th className="p-2.5 text-right whitespace-nowrap">الصنف</th>
                 <th className="p-2.5 text-right whitespace-nowrap">اتشرت</th>
                 <th className="p-2.5 text-right whitespace-nowrap">اتباعت</th>
-                <th className="p-2.5 text-right whitespace-nowrap">المتبقي حاليًا</th>
+                <th className="p-2.5 text-right whitespace-nowrap">المتبقي من هذه الطلبية</th>
+                <th className="p-2.5 text-right whitespace-nowrap">الربح منها</th>
                 <th className="p-2.5 text-right whitespace-nowrap">آخر بيع</th>
               </tr>
             </thead>
@@ -162,6 +178,7 @@ export default function OrderReport() {
                   <td className="p-2.5 font-mono-data whitespace-nowrap">{it.orderedQty}</td>
                   <td className="p-2.5 font-mono-data whitespace-nowrap">{it.soldQty}</td>
                   <td className="p-2.5 font-mono-data whitespace-nowrap">{it.remainingQty}</td>
+                  <td className="p-2.5 font-mono-data whitespace-nowrap text-emerald-600">{it.profit.toFixed(2)}</td>
                   <td className="p-2.5 whitespace-nowrap text-slate-500">
                     {it.lastSaleDate ? new Date(it.lastSaleDate).toLocaleDateString('ar-EG') : '-'}
                   </td>

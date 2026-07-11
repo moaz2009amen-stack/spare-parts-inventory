@@ -56,8 +56,6 @@ export default function Reports() {
           .from('sales_invoice_items')
           .select('*, sales_invoices!inner(created_at, invoice_number)')
           .gte('sales_invoices.created_at', fromIso).lte('sales_invoices.created_at', toIso)
-        const { data: products } = await supabase.from('products').select('id, name, cost_price')
-        const costMap = Object.fromEntries((products ?? []).map((p) => [p.id, p.cost_price]))
 
         const list = items ?? []
         let totalProfit = 0
@@ -66,9 +64,8 @@ export default function Reports() {
 
         list.forEach((it) => {
           const inv = it.sales_invoices as unknown as { invoice_number: string }
-          const cost = costMap[it.product_id] ?? 0
           const revenue = it.quantity * it.unit_price
-          const profit = it.quantity * (it.unit_price - cost)
+          const profit = revenue - (it.actual_cost ?? 0)
           totalRevenue += revenue
           totalProfit += profit
           if (!byInvoice[inv.invoice_number]) byInvoice[inv.invoice_number] = { revenue: 0, profit: 0 }
@@ -76,14 +73,17 @@ export default function Reports() {
           byInvoice[inv.invoice_number].profit += profit
         })
 
+        const margin = totalRevenue > 0 ? (totalProfit / totalRevenue) * 100 : 0
+
         setSummary([
           { label: 'إجمالي الإيراد', value: totalRevenue.toFixed(2) },
-          { label: 'إجمالي الربح التقديري', value: totalProfit.toFixed(2) },
+          { label: 'إجمالي الربح الدقيق', value: totalProfit.toFixed(2) },
+          { label: 'هامش الربح', value: `${margin.toFixed(1)}%` },
         ])
         setRows(Object.entries(byInvoice).map(([inv, v]) => ({
           'رقم الفاتورة': inv,
           'الإيراد': v.revenue.toFixed(2),
-          'الربح التقديري': v.profit.toFixed(2),
+          'الربح الدقيق': v.profit.toFixed(2),
         })))
       }
 
