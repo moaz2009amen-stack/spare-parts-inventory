@@ -114,13 +114,33 @@ export default function Sales() {
       .map((u) => ({ unit_name: u.unit_name, conversion_factor: u.conversion_factor })),
   ]
 
-  const handleProductChange = (productId: string) => {
+  const handleProductChange = async (productId: string) => {
     const product = products.find((p) => p.id === productId)
+
+    // نجيب أقدم دفعة متاحة لسه فيها كمية (اللي هتتباع منها فعليًا أول)
+    // ونقترح سعر البيع المسجّل عليها هي بالذات
+    let suggestedPrice = product ? String(product.sale_price) : ''
+    if (product) {
+      const { data: lot } = await supabase
+        .from('inventory_lots')
+        .select('default_sale_price')
+        .eq('product_id', productId)
+        .eq('warehouse_id', warehouseId)
+        .gt('quantity_remaining', 0)
+        .order('created_at', { ascending: true })
+        .limit(1)
+        .maybeSingle()
+
+      if (lot?.default_sale_price) {
+        suggestedPrice = String(lot.default_sale_price)
+      }
+    }
+
     setPicker({
       product_id: productId,
       unit_name: product?.base_unit ?? 'قطعة',
       quantity: '1',
-      unit_price: product ? String(product.sale_price) : '',
+      unit_price: suggestedPrice,
     })
   }
 

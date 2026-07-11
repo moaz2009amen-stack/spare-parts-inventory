@@ -18,6 +18,7 @@ interface CartItem {
   conversion_factor: number
   quantity: number
   unit_cost: number
+  sale_price: string
 }
 
 interface OrderDraft {
@@ -50,6 +51,7 @@ export default function Orders() {
     unit_name: 'قطعة',
     quantity: '1',
     unit_cost: '',
+    sale_price: '',
   })
 
   useEffect(() => {
@@ -96,6 +98,7 @@ export default function Orders() {
       unit_name: product?.base_unit ?? 'قطعة',
       quantity: '1',
       unit_cost: product ? String(product.cost_price) : '',
+      sale_price: product && product.sale_price > 0 ? String(product.sale_price) : '',
     })
   }
 
@@ -113,9 +116,10 @@ export default function Orders() {
         conversion_factor: unit.conversion_factor,
         quantity: Number(picker.quantity),
         unit_cost: Number(picker.unit_cost),
+        sale_price: picker.sale_price,
       },
     ])
-    setPicker({ product_id: '', unit_name: 'قطعة', quantity: '1', unit_cost: '' })
+    setPicker({ product_id: '', unit_name: 'قطعة', quantity: '1', unit_cost: '', sale_price: '' })
   }
 
   const removeFromCart = (index: number) => {
@@ -158,6 +162,7 @@ export default function Orders() {
         conversion_factor: item.conversion_factor,
         quantity: item.quantity,
         unit_cost: item.unit_cost,
+        sale_price: item.sale_price,
       })),
       p_discount_amount: discountValue,
     })
@@ -277,7 +282,15 @@ export default function Orders() {
             placeholder="تكلفة الوحدة"
             value={picker.unit_cost}
             onChange={(e) => setPicker({ ...picker, unit_cost: e.target.value })}
-            className="border border-border-soft rounded-xl px-3 py-2.5 col-span-2 focus:outline-none focus:ring-2 focus:ring-accent"
+            className="border border-border-soft rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-accent"
+          />
+          <input
+            type="number"
+            step="0.01"
+            placeholder="سعر البيع المقترح لهذه الدفعة"
+            value={picker.sale_price}
+            onChange={(e) => setPicker({ ...picker, sale_price: e.target.value })}
+            className="border border-border-soft rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-accent"
           />
           <button
             onClick={addToCart}
@@ -299,13 +312,14 @@ export default function Orders() {
                 <th className="p-3 whitespace-nowrap">الوحدة</th>
                 <th className="p-3 whitespace-nowrap">الكمية</th>
                 <th className="p-3 whitespace-nowrap">التكلفة</th>
+                <th className="p-3 whitespace-nowrap">سعر البيع المقترح</th>
                 <th className="p-3 whitespace-nowrap">الإجمالي</th>
                 <th className="p-3"></th>
               </tr>
             </thead>
             <tbody>
               {cart.length === 0 ? (
-                <tr><td colSpan={6} className="p-6 text-center text-slate-500">لم تُضف أي أصناف بعد</td></tr>
+                <tr><td colSpan={7} className="p-6 text-center text-slate-500">لم تُضف أي أصناف بعد</td></tr>
               ) : (
                 cart.map((item, i) => (
                   <tr key={i} className="border-t border-border-soft">
@@ -313,6 +327,7 @@ export default function Orders() {
                     <td className="p-3 whitespace-nowrap">{item.unit_name}</td>
                     <td className="p-3 font-mono-data whitespace-nowrap">{item.quantity}</td>
                     <td className="p-3 font-mono-data whitespace-nowrap">{item.unit_cost}</td>
+                    <td className="p-3 font-mono-data whitespace-nowrap">{item.sale_price || '-'}</td>
                     <td className="p-3 font-mono-data whitespace-nowrap">{item.quantity * item.unit_cost}</td>
                     <td className="p-3 text-left">
                       <button onClick={() => removeFromCart(i)} className="text-red-600 hover:text-red-700">

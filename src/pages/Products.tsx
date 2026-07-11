@@ -233,24 +233,9 @@ export default function Products() {
             ))}
           </Select>
         </div>
-        <input
-          name="cost_price"
-          value={form.cost_price}
-          onChange={handleChange}
-          placeholder="سعر تكلفة مبدئي (اختياري، تقدر تغيّره وقت كل طلبية)"
-          type="number"
-          step="0.01"
-          className="border border-border-soft rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-accent transition-shadow"
-        />
-        <input
-          name="sale_price"
-          value={form.sale_price}
-          onChange={handleChange}
-          placeholder="سعر بيع مبدئي (اختياري، تقدر تغيّره وقت كل فاتورة)"
-          type="number"
-          step="0.01"
-          className="border border-border-soft rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-accent transition-shadow"
-        />
+        <p className="text-xs text-slate-500 sm:col-span-2 bg-surface rounded-lg px-3 py-2">
+          سعر التكلفة وسعر البيع بيتحددوا وقت كل طلبية وفاتورة على حدة، مش هنا.
+        </p>
         <input
           name="min_stock_alert"
           value={form.min_stock_alert}
