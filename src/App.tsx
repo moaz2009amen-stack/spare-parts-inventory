@@ -19,6 +19,7 @@ import Reports from './pages/Reports'
 import ProductReport from './pages/ProductReport'
 import WarehouseReport from './pages/WarehouseReport'
 import OrderReport from './pages/OrderReport'
+import ActivityLog from './pages/ActivityLog'
 
 function AppContent() {
   const { session, loading } = useAuth()
@@ -46,6 +47,7 @@ function AppContent() {
           <Route path="/returns" element={<Returns />} />
           <Route path="/warehouses" element={<Warehouses />} />
           <Route path="/stocktake" element={<Stocktake />} />
+          <Route path="/activity-log" element={<ActivityLog />} />
           <Route path="/settings" element={<Settings />} />
         </Route>
       </Routes>

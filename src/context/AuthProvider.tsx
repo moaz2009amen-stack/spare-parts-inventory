@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabaseClient'
@@ -8,6 +8,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null)
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [loading, setLoading] = useState(true)
+  const hasLoggedLogin = useRef(false)
 
   const loadProfile = async (userId: string) => {
     const { data } = await supabase
@@ -26,10 +27,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(false)
     })
 
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
       setSession(session)
-      if (session) loadProfile(session.user.id)
-      else setProfile(null)
+      if (session) {
+        loadProfile(session.user.id)
+        // سجّل الدخول مرة واحدة بس لكل جلسة فعلية (مش كل مرة يجدد التوكن)
+        if (event === 'SIGNED_IN' && !hasLoggedLogin.current) {
+          hasLoggedLogin.current = true
+          supabase.rpc('log_activity', { p_action: 'تسجيل دخول للنظام' })
+        }
+      } else {
+        setProfile(null)
+        hasLoggedLogin.current = false
+      }
     })
 
     return () => listener.subscription.unsubscribe()
