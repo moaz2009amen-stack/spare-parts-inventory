@@ -53,15 +53,52 @@ export default function Settings() {
 
   useEffect(() => {
     let cancelled = false
-    supabase.from('company_settings').select('*').eq('id', true).single().then(({ data: s }) => {
+
+    async function load() {
+      const { data: s, error: fetchError } = await supabase
+        .from('company_settings')
+        .select('*')
+        .eq('id', true)
+        .maybeSingle()
+
       if (cancelled) return
-      if (s) {
-        setSettings(s)
-        setNextSalesNumber(String(s.next_sales_invoice_number))
-        setNextOrderNumber(String(s.next_order_number))
+
+      if (fetchError) {
+        setError(fetchError.message)
+        setLoading(false)
+        return
       }
+
+      if (!s) {
+        // الصف الافتراضي مش موجود لسبب ما — ننشئه دلوقتي تلقائيًا
+        const { data: created, error: createError } = await supabase
+          .from('company_settings')
+          .insert({ id: true })
+          .select()
+          .single()
+
+        if (cancelled) return
+
+        if (createError) {
+          setError('تعذر تحميل أو إنشاء إعدادات الشركة: ' + createError.message)
+          setLoading(false)
+          return
+        }
+
+        setSettings(created)
+        setNextSalesNumber(String(created.next_sales_invoice_number))
+        setNextOrderNumber(String(created.next_order_number))
+        setLoading(false)
+        return
+      }
+
+      setSettings(s)
+      setNextSalesNumber(String(s.next_sales_invoice_number))
+      setNextOrderNumber(String(s.next_order_number))
       setLoading(false)
-    })
+    }
+
+    load()
     return () => { cancelled = true }
   }, [])
 
@@ -211,11 +248,19 @@ export default function Settings() {
     e.target.value = ''
   }
 
-  if (loading || !settings) {
+  if (loading) {
     return (
       <div className="p-8 flex items-center gap-2 text-slate-500">
         <Loader2 size={16} className="animate-spin" />
         جاري التحميل...
+      </div>
+    )
+  }
+
+  if (!settings) {
+    return (
+      <div className="p-8 text-red-600 text-sm">
+        تعذر تحميل إعدادات الشركة. {error || 'حاول تحدّث الصفحة، ولو المشكلة استمرت تأكد من وجود صف في جدول company_settings.'}
       </div>
     )
   }
