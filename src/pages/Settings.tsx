@@ -78,7 +78,7 @@ export default function Settings() {
       }
 
       if (!s) {
-        // الصف الافتراضي مش موجود لسبب ما — ننشئه دلوقتي تلقائيًا
+        // الصف الافتراضي مش موجود لسبب ما — ننشئه دلوقتي تلقائيًا m
         const { data: created, error: createError } = await supabase
           .from('company_settings')
           .insert({ id: true })
