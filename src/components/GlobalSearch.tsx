@@ -38,15 +38,23 @@ export default function GlobalSearch() {
       setLoading(true)
       const term = `%${query.trim()}%`
 
-      const [products, customers, sales, orders] = await Promise.all([
-        supabase.from('products').select('id, name, part_number').or(`name.ilike.${term},part_number.ilike.${term},barcode.ilike.${term}`).limit(5),
+      const [productsByName, productsByPart, productsByBarcode, customers, sales, orders] = await Promise.all([
+        supabase.from('products').select('id, name, part_number').ilike('name', term).limit(5),
+        supabase.from('products').select('id, name, part_number').ilike('part_number', term).limit(5),
+        supabase.from('products').select('id, name, part_number').ilike('barcode', term).limit(5),
         supabase.from('customers').select('id, name, phone').ilike('name', term).limit(5),
         supabase.from('sales_invoices').select('id, invoice_number').ilike('invoice_number', term).limit(5),
         supabase.from('orders').select('id, order_number').ilike('order_number', term).limit(5),
       ])
 
+      // دمج نتائج الأصناف الثلاثة وإزالة أي تكرار (نفس الصنف ممكن يطابق أكتر من عمود)
+      const productMap = new Map<string, { id: string; name: string; part_number: string }>()
+      for (const p of [...(productsByName.data ?? []), ...(productsByPart.data ?? []), ...(productsByBarcode.data ?? [])]) {
+        productMap.set(p.id, p)
+      }
+
       const combined: SearchResult[] = [
-        ...(products.data ?? []).map((p) => ({
+        ...Array.from(productMap.values()).slice(0, 5).map((p) => ({
           type: 'صنف' as const, label: p.name, sublabel: p.part_number, path: '/products',
         })),
         ...(customers.data ?? []).map((c) => ({

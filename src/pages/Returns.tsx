@@ -8,6 +8,7 @@ type SaleInvoice = Database['public']['Tables']['sales_invoices']['Row']
 type SaleItem = Database['public']['Tables']['sales_invoice_items']['Row']
 type Order = Database['public']['Tables']['orders']['Row']
 type OrderItem = Database['public']['Tables']['order_items']['Row']
+type ProductUnit = Database['public']['Tables']['product_units']['Row']
 
 export default function Returns() {
   const [tab, setTab] = useState<'sale' | 'order'>('sale')
@@ -25,11 +26,22 @@ export default function Returns() {
   const [orderItems, setOrderItems] = useState<(OrderItem & { returnQty: string })[]>([])
 
   const [productNames, setProductNames] = useState<Record<string, string>>({})
+  const [productBaseUnits, setProductBaseUnits] = useState<Record<string, string>>({})
+  const [productUnits, setProductUnits] = useState<ProductUnit[]>([])
   const [notes, setNotes] = useState('')
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
+
+  // معامل التحويل الحقيقي للوحدة (لو كانت الوحدة الأساسية = 1، وإلا
+  // بنجيبه من جدول وحدات القياس بتاعة الصنف — عشان مرتجع "كرتونة" مثلًا
+  // يرجّع الكمية الصح بالقطعة مش يفترض إنها قطعة واحدة بالغلط)
+  const getConversionFactor = (productId: string, unitName: string) => {
+    if (productBaseUnits[productId] === unitName) return 1
+    const pu = productUnits.find((u) => u.product_id === productId && u.unit_name === unitName)
+    return pu?.conversion_factor ?? 1
+  }
 
   useEffect(() => {
     let cancelled = false
@@ -38,14 +50,19 @@ export default function Returns() {
       supabase.from('orders').select('*').order('created_at', { ascending: false }).limit(100),
       supabase.from('customers').select('id, name'),
       supabase.from('warehouses').select('id, name'),
-      supabase.from('products').select('id, name'),
-    ]).then(([inv, ord, c, w, p]) => {
+      supabase.from('products').select('id, name, base_unit'),
+      supabase.from('product_units').select('*'),
+    ]).then(([inv, ord, c, w, p, pu]) => {
       if (cancelled) return
       if (inv.data) setInvoices(inv.data)
       if (ord.data) setOrders(ord.data)
       if (c.data) setCustomerNames(Object.fromEntries(c.data.map((x) => [x.id, x.name])))
       if (w.data) setWarehouseNames(Object.fromEntries(w.data.map((x) => [x.id, x.name])))
-      if (p.data) setProductNames(Object.fromEntries(p.data.map((x) => [x.id, x.name])))
+      if (p.data) {
+        setProductNames(Object.fromEntries(p.data.map((x) => [x.id, x.name])))
+        setProductBaseUnits(Object.fromEntries(p.data.map((x) => [x.id, x.base_unit])))
+      }
+      if (pu.data) setProductUnits(pu.data)
       setLoading(false)
     })
     return () => { cancelled = true }
@@ -56,8 +73,29 @@ export default function Returns() {
     setError('')
     setSuccess('')
     if (!invoiceId) { setSaleItems([]); return }
-    const { data } = await supabase.from('sales_invoice_items').select('*').eq('invoice_id', invoiceId)
-    setSaleItems((data ?? []).map((it) => ({ ...it, returnQty: '0' })))
+
+    const [{ data: items }, { data: pastReturns }] = await Promise.all([
+      supabase.from('sales_invoice_items').select('*').eq('invoice_id', invoiceId),
+      supabase
+        .from('sales_return_items')
+        .select('product_id, quantity, sales_returns!inner(sales_invoice_id)')
+        .eq('sales_returns.sales_invoice_id', invoiceId),
+    ])
+
+    // نحسب كام قطعة اتردت بالفعل من كل صنف قبل كده، عشان نوري المستخدم
+    // الكمية اللي لسه متاحة يرجعها فعليًا بدل ما يفاجأ بالرفض
+    const returnedMap: Record<string, number> = {}
+    for (const r of pastReturns ?? []) {
+      returnedMap[r.product_id] = (returnedMap[r.product_id] ?? 0) + Number(r.quantity)
+    }
+
+    setSaleItems(
+      (items ?? []).map((it) => ({
+        ...it,
+        quantity: it.quantity - (returnedMap[it.product_id] ?? 0),
+        returnQty: '0',
+      }))
+    )
   }
 
   const loadOrderItems = async (orderId: string) => {
@@ -65,8 +103,27 @@ export default function Returns() {
     setError('')
     setSuccess('')
     if (!orderId) { setOrderItems([]); return }
-    const { data } = await supabase.from('order_items').select('*').eq('order_id', orderId)
-    setOrderItems((data ?? []).map((it) => ({ ...it, returnQty: '0' })))
+
+    const [{ data: items }, { data: pastReturns }] = await Promise.all([
+      supabase.from('order_items').select('*').eq('order_id', orderId),
+      supabase
+        .from('order_return_items')
+        .select('product_id, quantity, order_returns!inner(order_id)')
+        .eq('order_returns.order_id', orderId),
+    ])
+
+    const returnedMap: Record<string, number> = {}
+    for (const r of pastReturns ?? []) {
+      returnedMap[r.product_id] = (returnedMap[r.product_id] ?? 0) + Number(r.quantity)
+    }
+
+    setOrderItems(
+      (items ?? []).map((it) => ({
+        ...it,
+        quantity: it.quantity - (returnedMap[it.product_id] ?? 0),
+        returnQty: '0',
+      }))
+    )
   }
 
   const handleSaleReturn = async () => {
@@ -78,7 +135,7 @@ export default function Returns() {
       .map((it) => ({
         product_id: it.product_id,
         unit_name: it.unit_name,
-        conversion_factor: 1,
+        conversion_factor: getConversionFactor(it.product_id, it.unit_name),
         quantity: Number(it.returnQty),
         unit_price: it.unit_price,
       }))
@@ -87,6 +144,7 @@ export default function Returns() {
       setError('حدد كمية أكبر من صفر لصنف واحد على الأقل')
       return
     }
+
 
     setSaving(true)
     const { error } = await supabase.rpc('create_sales_return', {
@@ -114,7 +172,7 @@ export default function Returns() {
       .map((it) => ({
         product_id: it.product_id,
         unit_name: it.unit_name,
-        conversion_factor: 1,
+        conversion_factor: getConversionFactor(it.product_id, it.unit_name),
         quantity: Number(it.returnQty),
         unit_cost: it.unit_cost,
       }))
@@ -196,7 +254,7 @@ export default function Returns() {
                       <tr>
                         <th className="p-3 whitespace-nowrap">الصنف</th>
                         <th className="p-3 whitespace-nowrap">الوحدة</th>
-                        <th className="p-3 whitespace-nowrap">الكمية المباعة</th>
+                        <th className="p-3 whitespace-nowrap">المتاح للإرجاع</th>
                         <th className="p-3 whitespace-nowrap">السعر</th>
                         <th className="p-3 whitespace-nowrap">كمية المرتجع</th>
                       </tr>
@@ -274,7 +332,7 @@ export default function Returns() {
                       <tr>
                         <th className="p-3 whitespace-nowrap">الصنف</th>
                         <th className="p-3 whitespace-nowrap">الوحدة</th>
-                        <th className="p-3 whitespace-nowrap">الكمية المشتراة</th>
+                        <th className="p-3 whitespace-nowrap">المتاح للإرجاع</th>
                         <th className="p-3 whitespace-nowrap">التكلفة</th>
                         <th className="p-3 whitespace-nowrap">كمية المرتجع</th>
                       </tr>

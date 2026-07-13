@@ -1,11 +1,12 @@
 import { useEffect, useState, useRef } from 'react'
 import { Bell } from 'lucide-react'
 import { supabase } from '../lib/supabaseClient'
+import { useAuth } from '../context/useAuth'
 import type { Database } from '../lib/database.types'
 
 type Notification = Database['public']['Tables']['notifications']['Row']
 
-const LAST_SEEN_KEY = 'notifications_last_seen'
+const LAST_SEEN_KEY_PREFIX = 'notifications_last_seen'
 
 // نستخدم AudioContext واحد ثابت طول عمر الصفحة بدل ما نعمل واحد جديد
 // كل مرة — المتصفحات كتير بترفض تشغيل Context جديد من غير تفاعل مباشر،
@@ -72,11 +73,16 @@ function playNotificationSound() {
 }
 
 export default function NotificationBell() {
+  const { session } = useAuth()
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [open, setOpen] = useState(false)
   const [unreadCount, setUnreadCount] = useState(0)
   const menuRef = useRef<HTMLDivElement>(null)
   const isFirstLoad = useRef(true)
+
+  // مفتاح منفصل لكل مستخدم، عشان لو أكتر من موظف بيستخدموا نفس الجهاز
+  // مايتلخبطش عداد الإشعارات بينهم
+  const lastSeenKey = `${LAST_SEEN_KEY_PREFIX}_${session?.user.id ?? 'guest'}`
 
   useEffect(() => {
     let cancelled = false
@@ -134,7 +140,7 @@ export default function NotificationBell() {
   }, [])
 
   const updateUnread = (list: Notification[]) => {
-    const lastSeen = localStorage.getItem(LAST_SEEN_KEY)
+    const lastSeen = localStorage.getItem(lastSeenKey)
     const lastSeenDate = lastSeen ? new Date(lastSeen) : new Date(0)
     setUnreadCount(list.filter((n) => new Date(n.created_at) > lastSeenDate).length)
   }
@@ -142,7 +148,7 @@ export default function NotificationBell() {
   const handleOpen = () => {
     setOpen((prev) => !prev)
     if (!open) {
-      localStorage.setItem(LAST_SEEN_KEY, new Date().toISOString())
+      localStorage.setItem(lastSeenKey, new Date().toISOString())
       setUnreadCount(0)
     }
   }

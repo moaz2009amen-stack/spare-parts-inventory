@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { Fragment, useEffect, useState } from 'react'
 import { ChevronDown, ChevronUp, Loader2, BarChart3, Pencil, Trash2, Check, X, Power } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabaseClient'
@@ -285,7 +285,7 @@ export default function Products() {
                 <tr><td colSpan={7} className="p-6 text-center text-slate-500">لا توجد أصناف بعد</td></tr>
               ) : (
                 products.map((p) => (
-                  <>
+                  <Fragment key={p.id}>
                     {editingId === p.id && editForm ? (
                       <tr key={p.id} className="border-t border-border-soft bg-accent/5">
                         <td className="p-2" colSpan={7}>
@@ -385,7 +385,7 @@ export default function Products() {
                         </td>
                       </tr>
                     )}
-                  </>
+                  </Fragment>
                 ))
               )}
             </tbody>

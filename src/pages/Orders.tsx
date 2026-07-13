@@ -18,7 +18,7 @@ interface CartItem {
   conversion_factor: number
   quantity: number
   unit_cost: number
-  sale_price: string
+  sale_price: number | null
 }
 
 interface OrderDraft {
@@ -29,10 +29,14 @@ interface OrderDraft {
 }
 
 const DRAFT_KEY = 'new-order'
-const draft = loadDraft<OrderDraft>(DRAFT_KEY, { warehouseId: '', notes: '', discount: '', cart: [] })
+const emptyOrderDraft: OrderDraft = { warehouseId: '', notes: '', discount: '', cart: [] }
 
 export default function Orders() {
   const { profile } = useAuth()
+  // بنقرأ المسودة جوه الكومبوننت نفسه (مش على مستوى الملف) عشان تتحمّل
+  // من جديد في كل مرة تدخل الصفحة، مش أول مرة يتحمّل فيها الملف بس
+  const [draft] = useState<OrderDraft>(() => loadDraft<OrderDraft>(DRAFT_KEY, emptyOrderDraft))
+
   const [products, setProducts] = useState<Product[]>([])
   const [units, setUnits] = useState<ProductUnit[]>([])
   const [warehouses, setWarehouses] = useState<Warehouse[]>([])
@@ -116,7 +120,7 @@ export default function Orders() {
         conversion_factor: unit.conversion_factor,
         quantity: Number(picker.quantity),
         unit_cost: Number(picker.unit_cost),
-        sale_price: picker.sale_price,
+        sale_price: picker.sale_price ? Number(picker.sale_price) : null,
       },
     ])
     setPicker({ product_id: '', unit_name: 'قطعة', quantity: '1', unit_cost: '', sale_price: '' })
@@ -271,6 +275,7 @@ export default function Orders() {
           </Select>
           <input
             type="number"
+            min="0"
             placeholder="الكمية"
             value={picker.quantity}
             onChange={(e) => setPicker({ ...picker, quantity: e.target.value })}
@@ -278,6 +283,7 @@ export default function Orders() {
           />
           <input
             type="number"
+            min="0"
             step="0.01"
             placeholder="تكلفة الوحدة"
             value={picker.unit_cost}
@@ -286,6 +292,7 @@ export default function Orders() {
           />
           <input
             type="number"
+            min="0"
             step="0.01"
             placeholder="سعر البيع المقترح لهذه الدفعة"
             value={picker.sale_price}
@@ -327,7 +334,7 @@ export default function Orders() {
                     <td className="p-3 whitespace-nowrap">{item.unit_name}</td>
                     <td className="p-3 font-mono-data whitespace-nowrap">{item.quantity}</td>
                     <td className="p-3 font-mono-data whitespace-nowrap">{item.unit_cost}</td>
-                    <td className="p-3 font-mono-data whitespace-nowrap">{item.sale_price || '-'}</td>
+                    <td className="p-3 font-mono-data whitespace-nowrap">{item.sale_price ?? '-'}</td>
                     <td className="p-3 font-mono-data whitespace-nowrap">{item.quantity * item.unit_cost}</td>
                     <td className="p-3 text-left">
                       <button onClick={() => removeFromCart(i)} className="text-red-600 hover:text-red-700">
@@ -351,6 +358,7 @@ export default function Orders() {
           <label className="text-sm text-slate-500">الخصم</label>
           <input
             type="number"
+            min="0"
             step="0.01"
             value={discount}
             onChange={(e) => setDiscount(e.target.value)}

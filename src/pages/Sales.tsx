@@ -30,12 +30,16 @@ interface SalesDraft {
 }
 
 const DRAFT_KEY = 'sales-invoice'
-const draft = loadDraft<SalesDraft>(DRAFT_KEY, {
+const emptySalesDraft: SalesDraft = {
   warehouseId: '', customerId: '', paidAmount: '', discount: '', cart: [],
-})
+}
 
 export default function Sales() {
   const { profile } = useAuth()
+  // بنقرأ المسودة جوه الكومبوننت نفسه عشان تتحمّل من جديد في كل مرة
+  // تدخل الصفحة، مش أول مرة يتحمّل فيها الملف بس في الـ SPA
+  const [draft] = useState<SalesDraft>(() => loadDraft<SalesDraft>(DRAFT_KEY, emptySalesDraft))
+
   const [allProducts, setAllProducts] = useState<Product[]>([])
   const [inWarehouseProductIds, setInWarehouseProductIds] = useState<Set<string>>(new Set())
   const [units, setUnits] = useState<ProductUnit[]>([])
@@ -192,6 +196,14 @@ export default function Sales() {
       setError('اختر المخزن')
       return
     }
+    if (Number(paidAmount) < 0) {
+      setError('المبلغ المدفوع مينفعش يكون رقم سالب')
+      return
+    }
+    if (Number(paidAmount) > total) {
+      setError(`المبلغ المدفوع (${Number(paidAmount).toFixed(2)}) أكبر من إجمالي الفاتورة (${total.toFixed(2)})`)
+      return
+    }
 
     setSaving(true)
 
@@ -327,6 +339,7 @@ export default function Sales() {
           </Select>
           <input
             type="number"
+            min="0"
             placeholder="الكمية"
             value={picker.quantity}
             onChange={(e) => setPicker({ ...picker, quantity: e.target.value })}
@@ -334,6 +347,7 @@ export default function Sales() {
           />
           <input
             type="number"
+            min="0"
             step="0.01"
             placeholder="سعر الوحدة"
             value={picker.unit_price}
@@ -397,6 +411,7 @@ export default function Sales() {
           <label className="text-sm text-slate-500">الخصم</label>
           <input
             type="number"
+            min="0"
             step="0.01"
             value={discount}
             onChange={(e) => setDiscount(e.target.value)}
@@ -410,6 +425,7 @@ export default function Sales() {
         </div>
         <input
           type="number"
+          min="0"
           step="0.01"
           placeholder="المبلغ المدفوع الآن (اتركه فارغًا لو آجل بالكامل)"
           value={paidAmount}

@@ -14,9 +14,29 @@ export default function Login() {
     setError('')
 
     const email = `${username}@warehouse.local`
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password })
 
-    if (error) setError('اسم المستخدم أو كلمة المرور غير صحيحة')
+    if (error) {
+      setError('اسم المستخدم أو كلمة المرور غير صحيحة')
+      setLoading(false)
+      return
+    }
+
+    // كلمة السر ممكن تكون صح لكن الحساب متوقف من الإعدادات — من غير
+    // الفحص ده المستخدم كان بيشوف تطبيق فاضي تمامًا من غير أي تفسير
+    const { data: profile } = await supabase
+      .from('users')
+      .select('is_active')
+      .eq('id', data.user.id)
+      .single()
+
+    if (!profile || !profile.is_active) {
+      await supabase.auth.signOut()
+      setError('حسابك متوقف حاليًا. تواصل مع صاحب النظام عشان يفعّله تاني.')
+      setLoading(false)
+      return
+    }
+
     setLoading(false)
   }
 
@@ -36,7 +56,7 @@ export default function Login() {
             أهلًا بيك تاني 👋
           </h1>
           <p className="text-white/70 text-sm md:text-base leading-relaxed">
-            تابع مخزونك وفواتيرك ورصيد عملائك وموردينك من مكان واحد،
+            تابع مخزونك وفواتيرك وطلبياتك ورصيد عملائك من مكان واحد،
             بسهولة وأمان، من أي جهاز.
           </p>
         </div>

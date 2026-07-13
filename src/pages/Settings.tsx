@@ -1,7 +1,10 @@
 import { useEffect, useState } from 'react'
-import { Loader2, Upload, Save, Download, Database, Info, User, Bell } from 'lucide-react'
+import { Loader2, Upload, Save, Download, Database, Info, User, Bell, Users, Power } from 'lucide-react'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../context/useAuth'
+import type { Database as DB } from '../lib/database.types'
+
+type UserRow = DB['public']['Tables']['users']['Row']
 
 interface CompanySettings {
   company_name: string
@@ -14,17 +17,18 @@ interface CompanySettings {
   notify_debts: boolean
 }
 
-type SettingsTab = 'company' | 'account' | 'notifications' | 'backup' | 'system'
+type SettingsTab = 'company' | 'account' | 'users' | 'notifications' | 'backup' | 'system'
 
 const tabLabels: Record<SettingsTab, string> = {
-  company: 'بيانات الشركة', account: 'الحساب', notifications: 'الإشعارات',
+  company: 'بيانات الشركة', account: 'الحساب', users: 'المستخدمون', notifications: 'الإشعارات',
   backup: 'النسخ الاحتياطي', system: 'معلومات النظام',
 }
 
 const BACKUP_TABLES = [
   'company_settings', 'warehouses', 'categories', 'products', 'product_units',
-  'customers', 'inventory', 'orders', 'order_items',
-  'sales_invoices', 'sales_invoice_items', 'sales_returns', 'sales_return_items',
+  'customers', 'inventory', 'orders', 'order_items', 'inventory_lots',
+  'sales_invoices', 'sales_invoice_items', 'sale_item_lot_usage',
+  'sales_returns', 'sales_return_items',
   'order_returns', 'order_return_items', 'stocktakes', 'stocktake_items',
   'payments', 'treasury_transactions',
 ] as const
@@ -50,6 +54,10 @@ export default function Settings() {
   // نسخ احتياطي
   const [backupBusy, setBackupBusy] = useState(false)
   const [restoreLog, setRestoreLog] = useState<string[]>([])
+
+  // إدارة المستخدمين
+  const [users, setUsers] = useState<UserRow[]>([])
+  const [usersLoading, setUsersLoading] = useState(true)
 
   useEffect(() => {
     let cancelled = false
@@ -117,6 +125,41 @@ export default function Settings() {
     })
     return () => { cancelled = true }
   }, [])
+
+  useEffect(() => {
+    if (tab !== 'users') return
+    let cancelled = false
+    setUsersLoading(true)
+    supabase.from('users').select('*').order('full_name').then(({ data }) => {
+      if (cancelled) return
+      setUsers(data ?? [])
+      setUsersLoading(false)
+    })
+    return () => { cancelled = true }
+  }, [tab])
+
+  const toggleUserActive = async (u: UserRow) => {
+    setUsers((prev) => prev.map((x) => (x.id === u.id ? { ...x, is_active: !x.is_active } : x)))
+    await supabase.from('users').update({ is_active: !u.is_active }).eq('id', u.id)
+  }
+
+  const updateUserRole = async (
+    u: UserRow,
+    role: UserRow['role']
+  ) => {
+    setUsers((prev) =>
+      prev.map((x) =>
+        x.id === u.id
+          ? { ...x, role }
+          : x
+      )
+    )
+
+    await supabase
+      .from('users')
+      .update({ role })
+      .eq('id', u.id)
+  }
 
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -354,6 +397,61 @@ export default function Settings() {
           <button onClick={handleSaveAccount} disabled={saving} className="btn-primary flex items-center justify-center gap-2 text-white rounded-xl px-5 py-2.5 font-medium transition-all disabled:opacity-70">
             {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />} حفظ
           </button>
+        </div>
+      )}
+
+      {tab === 'users' && (
+        <div className="card overflow-hidden">
+          <div className="p-5 pb-0 flex items-center gap-2">
+            <Users size={16} className="text-accent-dark" />
+            <p className="font-display font-bold text-navy-900">المستخدمون</p>
+          </div>
+          <p className="text-xs text-slate-500 px-5 pt-2">
+            تقدر تعطّل حساب أو تغيّر دوره من هنا. **إنشاء حساب مستخدم جديد** لسه
+            لازم يتم من Supabase مباشرة (Authentication → Add User + سطر إضافة
+            في جدول users) لأسباب أمان — مينفعش يتعمل من واجهة التطبيق العادية.
+          </p>
+          {usersLoading ? (
+            <div className="flex items-center justify-center gap-2 p-6 text-slate-500">
+              <Loader2 size={16} className="animate-spin" /> جاري التحميل...
+            </div>
+          ) : (
+            <ul className="mt-3">
+              {users.map((u) => (
+                <li key={u.id} className="flex items-center justify-between gap-3 px-5 py-3 border-t border-border-soft">
+                  <div className="min-w-0">
+                    <p className={`text-sm font-medium ${u.is_active ? 'text-navy-900' : 'text-slate-400 line-through'}`}>{u.full_name}</p>
+                    <p className="text-xs text-slate-500 font-mono-data">{u.username}</p>
+                  </div>
+                  <div className="flex items-center gap-3 shrink-0">
+                    <select
+                      value={u.role}
+                      onChange={(e) =>
+                        updateUserRole(
+                          u,
+                          e.target.value as UserRow['role']
+                        )
+                      }
+                      className="text-xs border border-border-soft rounded-lg px-2 py-1.5"
+                    >
+                      <option value="owner">مالك</option>
+                      <option value="warehouse_manager">مدير مخزن</option>
+                      <option value="sales">مبيعات</option>
+                      <option value="purchasing">مشتريات</option>
+                      <option value="accountant">محاسب</option>
+                    </select>
+                    <button
+                      onClick={() => toggleUserActive(u)}
+                      className={u.is_active ? 'text-emerald-600' : 'text-slate-400'}
+                      title={u.is_active ? 'إيقاف الحساب' : 'تفعيل الحساب'}
+                    >
+                      <Power size={16} />
+                    </button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
       )}
 
