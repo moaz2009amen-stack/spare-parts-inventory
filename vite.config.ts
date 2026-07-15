@@ -4,6 +4,21 @@ import tailwindcss from '@tailwindcss/vite'
 import { VitePWA } from 'vite-plugin-pwa'
 
 export default defineConfig({
+  build: {
+    rollupOptions: {
+      output: {
+        // تقسيم مكتبات الطرف التالت الأساسية في ملفات منفصلة ثابتة —
+        // بتتخزّن في الكاش عند المستخدم وما تتغيرش إلا لو النسخة اتغيرت
+        // فعليًا، فمتفضلش تتحمّل تاني كل مرة تعمل فيها نشر جديد لكود
+        // الموقع بس (زي إضافة تعديل بسيط في صفحة).
+        manualChunks: {
+          'vendor-react': ['react', 'react-dom', 'react-router-dom'],
+          'vendor-supabase': ['@supabase/supabase-js'],
+          'vendor-icons': ['lucide-react'],
+        },
+      },
+    },
+  },
   plugins: [
     react(),
     tailwindcss(),
