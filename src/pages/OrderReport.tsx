@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { Loader2, ArrowRight } from 'lucide-react'
+import { Loader2, ArrowRight, FileSpreadsheet } from 'lucide-react'
 import { supabase } from '../lib/supabaseClient'
+import { exportMultiSheetExcel } from '../lib/exportExcel'
 import type { Database } from '../lib/database.types'
 
 type Order = Database['public']['Tables']['orders']['Row']
@@ -117,11 +118,51 @@ export default function OrderReport() {
   const totalRevenue = items.reduce((s, i) => s + i.soldRevenue, 0)
   const bestSelling = [...items].sort((a, b) => b.soldQty - a.soldQty)[0]
 
+  const handleExport = () => {
+    exportMultiSheetExcel(`تقرير-طلبية-${order.order_number}`, [
+      {
+        name: 'ملخص',
+        rows: [
+          { 'البيان': 'رقم الطلبية', 'القيمة': order.order_number },
+          { 'البيان': 'المخزن', 'القيمة': warehouseName },
+          { 'البيان': 'التاريخ', 'القيمة': new Date(order.created_at).toLocaleString('ar-EG') },
+          { 'البيان': 'إجمالي تكلفة الطلبية', 'القيمة': order.total_cost.toFixed(2) },
+          { 'البيان': 'نسبة بيع الطلبية', 'القيمة': `${sellThroughPercent.toFixed(0)}%` },
+          { 'البيان': 'الإيراد الفعلي منها', 'القيمة': totalRevenue.toFixed(2) },
+          { 'البيان': 'الربح الدقيق', 'القيمة': totalProfit.toFixed(2) },
+          ...(order.notes ? [{ 'البيان': 'ملاحظات', 'القيمة': order.notes }] : []),
+        ],
+      },
+      {
+        name: 'الأصناف',
+        rows: items.map((it) => ({
+          'الصنف': it.name,
+          'اتشرت': it.orderedQty,
+          'اتباعت': it.soldQty,
+          'المتبقي من هذه الطلبية': it.remainingQty,
+          'تكلفة الوحدة': it.unitCost,
+          'الإيراد منها': it.soldRevenue.toFixed(2),
+          'الربح منها': it.profit.toFixed(2),
+          'آخر بيع': it.lastSaleDate ? new Date(it.lastSaleDate).toLocaleDateString('ar-EG') : '-',
+        })),
+      },
+    ])
+  }
+
   return (
     <div className="page-enter p-4 md:p-6 max-w-4xl mx-auto">
-      <button onClick={() => navigate('/invoices')} className="flex items-center gap-1 text-sm text-accent-dark hover:underline mb-4">
-        <ArrowRight size={14} /> رجوع للفواتير والطلبيات
-      </button>
+      <div className="flex items-center justify-between mb-4">
+        <button onClick={() => navigate('/invoices')} className="flex items-center gap-1 text-sm text-accent-dark hover:underline">
+          <ArrowRight size={14} /> رجوع للفواتير والطلبيات
+        </button>
+        <button
+          onClick={handleExport}
+          className="flex items-center gap-2 bg-emerald-600 text-white rounded-xl px-3 md:px-4 py-2 text-sm font-medium hover:bg-emerald-700 transition-colors"
+        >
+          <FileSpreadsheet size={16} />
+          <span className="hidden sm:inline">تصدير Excel</span>
+        </button>
+      </div>
 
       <div className="card p-5 md:p-6 mb-6">
         <h1 className="font-display text-xl md:text-2xl font-bold text-navy-900">تقرير طلبية {order.order_number}</h1>

@@ -1,10 +1,15 @@
 import { useEffect, useState } from 'react'
-import { Loader2, FileSpreadsheet } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { Loader2, FileSpreadsheet, BarChart3, Lightbulb } from 'lucide-react'
 import { supabase } from '../lib/supabaseClient'
-import { exportToExcel } from '../lib/exportExcel'
+import { exportMultiSheetExcel } from '../lib/exportExcel'
+import { exportWarehouseInventory } from '../lib/exportInventory'
 import { getPeriodRange, type PeriodType } from '../lib/dateRanges'
 import PeriodSelector from '../components/PeriodSelector'
+import ReportQuickJump from '../components/ReportQuickJump'
+import type { Database } from '../lib/database.types'
 
+type Warehouse = Database['public']['Tables']['warehouses']['Row']
 type ReportTab = 'sales' | 'profit' | 'orders' | 'inventory' | 'customers' | 'debts' | 'returns' | 'stocktake'
 
 const tabLabels: Record<ReportTab, string> = {
@@ -13,15 +18,25 @@ const tabLabels: Record<ReportTab, string> = {
 }
 
 export default function Reports() {
+  const navigate = useNavigate()
   const [tab, setTab] = useState<ReportTab>('sales')
   const [period, setPeriod] = useState<PeriodType>('month')
   const [customFrom, setCustomFrom] = useState('')
   const [customTo, setCustomTo] = useState('')
   const [loading, setLoading] = useState(true)
   const [rows, setRows] = useState<Record<string, string | number>[]>([])
+  const [rowLinks, setRowLinks] = useState<(string | null)[]>([])
   const [summary, setSummary] = useState<{ label: string; value: string }[]>([])
+  const [warehouses, setWarehouses] = useState<Warehouse[]>([])
+  const [exportingWarehouseId, setExportingWarehouseId] = useState<string | null>(null)
 
   const range = getPeriodRange(period, customFrom, customTo)
+
+  useEffect(() => {
+    supabase.from('warehouses').select('*').order('created_at').then(({ data }) => {
+      if (data) setWarehouses(data)
+    })
+  }, [])
 
   useEffect(() => {
     let cancelled = false
@@ -49,6 +64,7 @@ export default function Reports() {
           'التاريخ': new Date(i.created_at).toLocaleDateString('ar-EG'),
           'الإجمالي': i.total_amount,
         })))
+        setRowLinks(list.map(() => null))
       }
 
       if (tab === 'profit') {
@@ -80,11 +96,13 @@ export default function Reports() {
           { label: 'إجمالي الربح الدقيق', value: totalProfit.toFixed(2) },
           { label: 'هامش الربح', value: `${margin.toFixed(1)}%` },
         ])
-        setRows(Object.entries(byInvoice).map(([inv, v]) => ({
+        const profitRows = Object.entries(byInvoice).map(([inv, v]) => ({
           'رقم الفاتورة': inv,
           'الإيراد': v.revenue.toFixed(2),
           'الربح الدقيق': v.profit.toFixed(2),
-        })))
+        }))
+        setRows(profitRows)
+        setRowLinks(profitRows.map(() => null))
       }
 
       if (tab === 'orders') {
@@ -105,12 +123,13 @@ export default function Reports() {
           'التاريخ': new Date(o.created_at).toLocaleDateString('ar-EG'),
           'التكلفة': o.total_cost,
         })))
+        setRowLinks(list.map((o) => `/reports/order/${o.id}`))
       }
 
       if (tab === 'inventory') {
         const { data } = await supabase
           .from('inventory')
-          .select('quantity, products(part_number, name), warehouses(name)')
+          .select('product_id, quantity, products(part_number, name), warehouses(name)')
         const list = data ?? []
         setSummary([{ label: 'عدد سجلات المخزون', value: String(list.length) }])
         setRows(list.map((r) => {
@@ -123,6 +142,7 @@ export default function Reports() {
             'الكمية': r.quantity,
           }
         }))
+        setRowLinks(list.map((r) => `/reports/product/${r.product_id}`))
       }
 
       if (tab === 'customers') {
@@ -132,6 +152,7 @@ export default function Reports() {
         setRows(list.map((c) => ({
           'الاسم': c.name, 'الهاتف': c.phone ?? '-', 'الرصيد': c.balance,
         })))
+        setRowLinks(list.map((c) => `/statement/${c.id}`))
       }
 
       if (tab === 'debts') {
@@ -143,6 +164,7 @@ export default function Reports() {
           { label: 'إجمالي الديون', value: total.toFixed(2) },
         ])
         setRows(list.map((c) => ({ 'الاسم': c.name, 'الهاتف': c.phone ?? '-', 'المديونية': c.balance })))
+        setRowLinks(list.map((c) => `/statement/${c.id}`))
       }
 
       if (tab === 'returns') {
@@ -175,6 +197,10 @@ export default function Reports() {
             'القيمة': r.total_amount,
           })),
         ])
+        setRowLinks([
+          ...list1.map(() => null),
+          ...list2.map((r) => `/reports/order/${r.order_id}`),
+        ])
       }
 
       if (tab === 'stocktake') {
@@ -189,6 +215,7 @@ export default function Reports() {
           'التاريخ': new Date(s.created_at).toLocaleDateString('ar-EG'),
           'ملاحظات': s.notes ?? '',
         })))
+        setRowLinks(list.map((s) => `/reports/warehouse/${s.warehouse_id}`))
       }
 
       if (!cancelled) setLoading(false)
@@ -198,13 +225,31 @@ export default function Reports() {
     return () => { cancelled = true }
   }, [tab, period, customFrom, customTo])
 
+  const hasLinks = rowLinks.some(Boolean)
+
   const handleExport = () => {
-    exportToExcel(`تقرير-${tabLabels[tab]}`, tabLabels[tab], rows)
+    exportMultiSheetExcel(`تقرير-${tabLabels[tab]}`, [
+      { name: 'ملخص', rows: summary.map((s) => ({ 'البيان': s.label, 'القيمة': s.value })) },
+      { name: tabLabels[tab], rows },
+    ])
+  }
+
+  const handleExportWarehouse = async (w: Warehouse) => {
+    setExportingWarehouseId(w.id)
+    try {
+      await exportWarehouseInventory(w.id, w.name)
+    } finally {
+      setExportingWarehouseId(null)
+    }
   }
 
   return (
     <div className="page-enter p-4 md:p-6 max-w-6xl mx-auto">
       <h1 className="font-display text-xl md:text-2xl font-bold text-navy-900 mb-5 md:mb-6">التقارير</h1>
+
+      <div className="mb-5">
+        <ReportQuickJump />
+      </div>
 
       <div className="flex flex-wrap gap-2 mb-5">
         {(Object.keys(tabLabels) as ReportTab[]).map((t) => (
@@ -239,6 +284,39 @@ export default function Reports() {
         </button>
       </div>
 
+      {tab === 'profit' && (
+        <div className="flex items-start gap-2 bg-accent/10 text-accent-dark rounded-xl px-3.5 py-3 mb-5 text-sm">
+          <Lightbulb size={16} className="shrink-0 mt-0.5" />
+          <p>
+            الجدول ده بيوريك الربح مجمّع على مستوى الفاتورة. لو عايز الربح الدقيق 100% لطلبية شراء
+            معينة (مرتبط بدفعتها بالظبط)، دوّر عليها برقمها في مربع البحث السريع فوق.
+          </p>
+        </div>
+      )}
+
+      {tab === 'inventory' && warehouses.length > 0 && (
+        <div className="card p-4 mb-5">
+          <p className="text-sm font-medium text-navy-900 mb-3">تصدير مخزون تفصيلي لكل مخزن (ملف Excel مستقل لكل مخزن)</p>
+          <div className="flex flex-wrap gap-2">
+            {warehouses.map((w) => (
+              <button
+                key={w.id}
+                onClick={() => handleExportWarehouse(w)}
+                disabled={exportingWarehouseId === w.id}
+                className="flex items-center gap-2 bg-white border border-border-soft rounded-xl px-3 py-2 text-sm text-slate-600 hover:border-emerald-500 hover:text-emerald-700 transition-colors disabled:opacity-50"
+              >
+                {exportingWarehouseId === w.id ? (
+                  <Loader2 size={14} className="animate-spin" />
+                ) : (
+                  <FileSpreadsheet size={14} />
+                )}
+                {w.name}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       {summary.length > 0 && (
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
           {summary.map((s, i) => (
@@ -266,6 +344,7 @@ export default function Reports() {
                     {Object.keys(rows[0]).map((key) => (
                       <th key={key} className="p-3 whitespace-nowrap font-normal">{key}</th>
                     ))}
+                    {hasLinks && <th className="p-3"></th>}
                   </tr>
                 </thead>
                 <tbody>
@@ -274,6 +353,19 @@ export default function Reports() {
                       {Object.values(row).map((val, j) => (
                         <td key={j} className="p-3 font-mono-data whitespace-nowrap">{val}</td>
                       ))}
+                      {hasLinks && (
+                        <td className="p-3 text-left whitespace-nowrap">
+                          {rowLinks[i] && (
+                            <button
+                              onClick={() => navigate(rowLinks[i]!)}
+                              className="flex items-center gap-1 text-xs text-accent-dark hover:underline"
+                            >
+                              <BarChart3 size={13} />
+                              عرض التقرير
+                            </button>
+                          )}
+                        </td>
+                      )}
                     </tr>
                   ))}
                 </tbody>

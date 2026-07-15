@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabaseClient'
 import { loadDraft, saveDraft, clearDraft } from '../lib/draft'
 import { useAuth } from '../context/useAuth'
 import Select from '../components/Select'
+import ProductSearchSelect from '../components/ProductSearchSelect'
 import type { Database } from '../lib/database.types'
 import InvoicePrint, { type InvoicePrintData } from '../components/InvoicePrint'
 
@@ -321,12 +322,12 @@ export default function Sales() {
         )}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-3">
           <div className="col-span-2">
-            <Select value={picker.product_id} onChange={(e) => handleProductChange(e.target.value)}>
-              <option value="">اختر صنف...</option>
-              {products.map((p) => (
-                <option key={p.id} value={p.id}>{p.part_number} — {p.name}</option>
-              ))}
-            </Select>
+            <ProductSearchSelect
+              products={products}
+              value={picker.product_id}
+              onChange={handleProductChange}
+              disabled={products.length === 0}
+            />
           </div>
           <Select
             value={picker.unit_name}

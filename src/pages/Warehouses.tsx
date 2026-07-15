@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
-import { Loader2, Star, Pencil, Trash2, Check, X, BarChart3 } from 'lucide-react'
+import { Loader2, Star, Pencil, Trash2, Check, X, BarChart3, FileSpreadsheet } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabaseClient'
+import { exportWarehouseInventory } from '../lib/exportInventory'
 import type { Database } from '../lib/database.types'
 
 type Warehouse = Database['public']['Tables']['warehouses']['Row']
@@ -17,6 +18,7 @@ export default function Warehouses() {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editName, setEditName] = useState('')
   const [editAddress, setEditAddress] = useState('')
+  const [exportingId, setExportingId] = useState<string | null>(null)
 
   const loadWarehouses = async () => {
     const { data, error } = await supabase.from('warehouses').select('*').order('created_at')
@@ -88,6 +90,15 @@ export default function Warehouses() {
     const { error } = await supabase.rpc('set_default_warehouse', { p_warehouse_id: id })
     if (error) setError(error.message)
     else await loadWarehouses()
+  }
+
+  const handleExport = async (w: Warehouse) => {
+    setExportingId(w.id)
+    try {
+      await exportWarehouseInventory(w.id, w.name)
+    } finally {
+      setExportingId(null)
+    }
   }
 
   return (
@@ -169,6 +180,18 @@ export default function Warehouses() {
                         title="تقرير المخزن"
                       >
                         <BarChart3 size={15} />
+                      </button>
+                      <button
+                        onClick={() => handleExport(w)}
+                        disabled={exportingId === w.id}
+                        className="text-emerald-600 hover:text-emerald-700 disabled:opacity-50"
+                        title="تصدير مخزون هذا المخزن (Excel)"
+                      >
+                        {exportingId === w.id ? (
+                          <Loader2 size={15} className="animate-spin" />
+                        ) : (
+                          <FileSpreadsheet size={15} />
+                        )}
                       </button>
                       {!w.is_default && (
                         <button
