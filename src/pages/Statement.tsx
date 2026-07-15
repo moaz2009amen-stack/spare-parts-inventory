@@ -30,10 +30,11 @@ export default function Statement() {
     if (!id) return
     setLoading(true)
 
-    const [partyRes, invoicesRes, paymentsRes] = await Promise.all([
+    const [partyRes, invoicesRes, paymentsRes, returnsRes] = await Promise.all([
       supabase.from('customers').select('*').eq('id', id).single(),
       supabase.from('sales_invoices').select('*').eq('customer_id', id),
       supabase.from('payments').select('*').eq('party_type', 'customer').eq('party_id', id),
+      supabase.from('sales_returns').select('*, sales_invoices(invoice_number)').eq('customer_id', id),
     ])
 
     if (partyRes.data) setParty(partyRes.data)
@@ -52,7 +53,20 @@ export default function Statement() {
       credit: p.amount,
     }))
 
-    const combined = [...invoiceRows, ...paymentRows].sort(
+    // مرتجع البيع بينقص من مديونية العميل، فبيظهر كحركة "دائن" لوحدها
+    // في الكشف — عشان الرصيد المتراكم في الجدول يطابق رصيد العميل
+    // الفعلي المعروض فوق
+    const returnRows: LedgerRow[] = (returnsRes.data ?? []).map((r) => {
+      const inv = r.sales_invoices as unknown as { invoice_number: string } | null
+      return {
+        date: r.created_at,
+        label: `مرتجع ${inv ? `فاتورة ${inv.invoice_number}` : 'بيع'}${r.notes ? ` — ${r.notes}` : ''}`,
+        debit: 0,
+        credit: r.total_amount,
+      }
+    })
+
+    const combined = [...invoiceRows, ...paymentRows, ...returnRows].sort(
       (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
     )
 

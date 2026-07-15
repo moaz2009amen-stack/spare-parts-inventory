@@ -3,7 +3,7 @@ import { NavLink, Outlet } from 'react-router-dom'
 import {
   LayoutDashboard, Package, Tags, Users, ShoppingCart,
   ClipboardList as OrdersIcon, FileText, Warehouse as WarehouseIcon,
-  ClipboardList, Undo2, Settings as SettingsIcon, BarChart3, LogOut, Wrench, Menu, X,
+  ClipboardList, Undo2, Settings as SettingsIcon, BarChart3, LogOut, Wrench, Menu, X, History,
 } from 'lucide-react'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../context/useAuth'
@@ -22,6 +22,7 @@ const links = [
   { to: '/returns', label: 'المرتجعات', icon: Undo2 },
   { to: '/warehouses', label: 'المخازن', icon: WarehouseIcon },
   { to: '/stocktake', label: 'الجرد', icon: ClipboardList },
+  { to: '/activity-log', label: 'سجل العمليات', icon: History },
   { to: '/settings', label: 'الإعدادات', icon: SettingsIcon },
 ]
 
