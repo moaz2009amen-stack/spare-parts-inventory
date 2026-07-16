@@ -280,9 +280,17 @@ export default function InvoicesList() {
                       <td className="p-3 font-mono-data whitespace-nowrap">{inv.total_amount}</td>
                       <td className={`p-3 whitespace-nowrap font-medium ${statusColor[inv.payment_status]}`}>{statusLabel[inv.payment_status]}</td>
                       <td className="p-3 text-left">
-                        <button onClick={() => viewSale(inv)} disabled={viewLoading} className="flex items-center gap-1 text-sm text-accent-dark hover:underline">
-                          <Eye size={14} />عرض
-                        </button>
+                        <div className="flex items-center justify-end gap-3">
+                          <button
+                            onClick={() => navigate(`/reports/sale/${inv.id}`)}
+                            className="flex items-center gap-1 text-sm text-slate-500 hover:text-navy-900"
+                          >
+                            <BarChart3 size={14} />تقرير
+                          </button>
+                          <button onClick={() => viewSale(inv)} disabled={viewLoading} className="flex items-center gap-1 text-sm text-accent-dark hover:underline">
+                            <Eye size={14} />عرض
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))

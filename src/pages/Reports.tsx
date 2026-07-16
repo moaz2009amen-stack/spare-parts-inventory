@@ -64,27 +64,27 @@ export default function Reports() {
           'التاريخ': new Date(i.created_at).toLocaleDateString('ar-EG'),
           'الإجمالي': i.total_amount,
         })))
-        setRowLinks(list.map(() => null))
+        setRowLinks(list.map((i) => `/reports/sale/${i.id}`))
       }
 
       if (tab === 'profit') {
         const { data: items } = await supabase
           .from('sales_invoice_items')
-          .select('*, sales_invoices!inner(created_at, invoice_number)')
+          .select('*, sales_invoices!inner(id, created_at, invoice_number)')
           .gte('sales_invoices.created_at', fromIso).lte('sales_invoices.created_at', toIso)
 
         const list = items ?? []
         let totalProfit = 0
         let totalRevenue = 0
-        const byInvoice: Record<string, { revenue: number; profit: number }> = {}
+        const byInvoice: Record<string, { id: string; revenue: number; profit: number }> = {}
 
         list.forEach((it) => {
-          const inv = it.sales_invoices as unknown as { invoice_number: string }
+          const inv = it.sales_invoices as unknown as { id: string; invoice_number: string }
           const revenue = it.quantity * it.unit_price
           const profit = revenue - (it.actual_cost ?? 0)
           totalRevenue += revenue
           totalProfit += profit
-          if (!byInvoice[inv.invoice_number]) byInvoice[inv.invoice_number] = { revenue: 0, profit: 0 }
+          if (!byInvoice[inv.invoice_number]) byInvoice[inv.invoice_number] = { id: inv.id, revenue: 0, profit: 0 }
           byInvoice[inv.invoice_number].revenue += revenue
           byInvoice[inv.invoice_number].profit += profit
         })
@@ -96,13 +96,14 @@ export default function Reports() {
           { label: 'إجمالي الربح الدقيق', value: totalProfit.toFixed(2) },
           { label: 'هامش الربح', value: `${margin.toFixed(1)}%` },
         ])
-        const profitRows = Object.entries(byInvoice).map(([inv, v]) => ({
+        const profitEntries = Object.entries(byInvoice)
+        const profitRows = profitEntries.map(([inv, v]) => ({
           'رقم الفاتورة': inv,
           'الإيراد': v.revenue.toFixed(2),
           'الربح الدقيق': v.profit.toFixed(2),
         }))
         setRows(profitRows)
-        setRowLinks(profitRows.map(() => null))
+        setRowLinks(profitEntries.map(([, v]) => `/reports/sale/${v.id}`))
       }
 
       if (tab === 'orders') {
@@ -198,7 +199,7 @@ export default function Reports() {
           })),
         ])
         setRowLinks([
-          ...list1.map(() => null),
+          ...list1.map((r) => `/reports/sale/${r.sales_invoice_id}`),
           ...list2.map((r) => `/reports/order/${r.order_id}`),
         ])
       }

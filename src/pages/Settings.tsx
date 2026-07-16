@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Loader2, Upload, Save, Download, Database, Info, User, Bell, Users, Power } from 'lucide-react'
+import { Loader2, Upload, Save, Download, Database, Info, User, Bell, Users, Power, UserPlus, Pencil, KeyRound, X, Check } from 'lucide-react'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../context/useAuth'
 import type { Database as DB } from '../lib/database.types'
@@ -50,6 +50,8 @@ export default function Settings() {
   const [fullName, setFullName] = useState('')
   const [phone, setPhone] = useState('')
   const [newPassword, setNewPassword] = useState('')
+  const [username, setUsername] = useState('')
+  const [usernameBusy, setUsernameBusy] = useState(false)
 
   // نسخ احتياطي
   const [backupBusy, setBackupBusy] = useState(false)
@@ -58,6 +60,14 @@ export default function Settings() {
   // إدارة المستخدمين
   const [users, setUsers] = useState<UserRow[]>([])
   const [usersLoading, setUsersLoading] = useState(true)
+  const [showAddUser, setShowAddUser] = useState(false)
+  const [addUserForm, setAddUserForm] = useState({ username: '', password: '', full_name: '', phone: '' })
+  const [addUserBusy, setAddUserBusy] = useState(false)
+  const [addUserError, setAddUserError] = useState('')
+  const [editingUsernameId, setEditingUsernameId] = useState<string | null>(null)
+  const [editingUsernameValue, setEditingUsernameValue] = useState('')
+  const [userActionBusy, setUserActionBusy] = useState<string | null>(null)
+  const [userActionError, setUserActionError] = useState('')
 
   useEffect(() => {
     let cancelled = false
@@ -120,22 +130,25 @@ export default function Settings() {
     let cancelled = false
     supabase.auth.getUser().then(async ({ data }) => {
       if (cancelled || !data.user) return
-      const { data: row } = await supabase.from('users').select('phone').eq('id', data.user.id).single()
-      if (!cancelled && row) setPhone(row.phone ?? '')
+      const { data: row } = await supabase.from('users').select('phone, username').eq('id', data.user.id).single()
+      if (!cancelled && row) {
+        setPhone(row.phone ?? '')
+        setUsername(row.username)
+      }
     })
     return () => { cancelled = true }
   }, [])
 
+  const loadUsers = async () => {
+    setUsersLoading(true)
+    const { data } = await supabase.from('users').select('*').order('full_name')
+    setUsers(data ?? [])
+    setUsersLoading(false)
+  }
+
   useEffect(() => {
     if (tab !== 'users') return
-    let cancelled = false
-    setUsersLoading(true)
-    supabase.from('users').select('*').order('full_name').then(({ data }) => {
-      if (cancelled) return
-      setUsers(data ?? [])
-      setUsersLoading(false)
-    })
-    return () => { cancelled = true }
+    loadUsers()
   }, [tab])
 
   const toggleUserActive = async (u: UserRow) => {
@@ -159,6 +172,101 @@ export default function Settings() {
       .from('users')
       .update({ role })
       .eq('id', u.id)
+  }
+
+  const handleCreateUser = async () => {
+    setAddUserError('')
+    if (!addUserForm.username.trim() || !addUserForm.password || !addUserForm.full_name.trim()) {
+      setAddUserError('اسم المستخدم وكلمة المرور والاسم بالكامل مطلوبين')
+      return
+    }
+    setAddUserBusy(true)
+    const { data, error } = await supabase.functions.invoke('manage-users', {
+      body: {
+        action: 'create',
+        username: addUserForm.username.trim(),
+        password: addUserForm.password,
+        full_name: addUserForm.full_name.trim(),
+        phone: addUserForm.phone.trim() || null,
+      },
+    })
+
+    // supabase.functions.invoke بيرجّع الخطأ في error لو الاستجابة
+    // status code مش 2xx، لكن رسالة الخطأ التفصيلية بتكون في data.error
+    const serverError = (data as { error?: string } | null)?.error
+    if (error || serverError) {
+      setAddUserError(serverError || error?.message || 'تعذر إنشاء الحساب')
+      setAddUserBusy(false)
+      return
+    }
+
+    setAddUserForm({ username: '', password: '', full_name: '', phone: '' })
+    setShowAddUser(false)
+    setAddUserBusy(false)
+    await loadUsers()
+  }
+
+  const startEditUsername = (u: UserRow) => {
+    setEditingUsernameId(u.id)
+    setEditingUsernameValue(u.username)
+    setUserActionError('')
+  }
+
+  const saveEditUsername = async (userId: string) => {
+    if (!editingUsernameValue.trim()) return
+    setUserActionBusy(userId)
+    setUserActionError('')
+    const { data, error } = await supabase.functions.invoke('manage-users', {
+      body: { action: 'update_username', user_id: userId, new_username: editingUsernameValue.trim() },
+    })
+    const serverError = (data as { error?: string } | null)?.error
+    if (error || serverError) {
+      setUserActionError(serverError || error?.message || 'تعذر تغيير اسم المستخدم')
+      setUserActionBusy(null)
+      return
+    }
+    setEditingUsernameId(null)
+    setUserActionBusy(null)
+    await loadUsers()
+  }
+
+  const handleResetOtherPassword = async (u: UserRow) => {
+    const newPass = window.prompt(`كلمة مرور جديدة لـ "${u.full_name}" (6 حروف/أرقام على الأقل):`)
+    if (!newPass) return
+    setUserActionBusy(u.id)
+    setUserActionError('')
+    const { data, error } = await supabase.functions.invoke('manage-users', {
+      body: { action: 'reset_password', user_id: u.id, new_password: newPass },
+    })
+    const serverError = (data as { error?: string } | null)?.error
+    if (error || serverError) {
+      setUserActionError(serverError || error?.message || 'تعذر تغيير كلمة المرور')
+      setUserActionBusy(null)
+      return
+    }
+    setUserActionBusy(null)
+    alert('اتغيّرت كلمة المرور بنجاح')
+  }
+
+  const handleChangeOwnUsername = async () => {
+    setError(''); setSuccess('')
+    if (!username.trim()) return
+    setUsernameBusy(true)
+    const { data: userData } = await supabase.auth.getUser()
+    if (!userData.user) { setUsernameBusy(false); return }
+
+    const { data, error: fnError } = await supabase.functions.invoke('manage-users', {
+      body: { action: 'update_username', user_id: userData.user.id, new_username: username.trim() },
+    })
+    const serverError = (data as { error?: string } | null)?.error
+    if (fnError || serverError) {
+      setError(serverError || fnError?.message || 'تعذر تغيير اسم المستخدم')
+      setUsernameBusy(false)
+      return
+    }
+
+    setSuccess('اتغيّر اسم المستخدم — لو خرجت من حسابك، لازم تدخل تاني بالاسم الجديد')
+    setUsernameBusy(false)
   }
 
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -397,61 +505,165 @@ export default function Settings() {
           <button onClick={handleSaveAccount} disabled={saving} className="btn-primary flex items-center justify-center gap-2 text-white rounded-xl px-5 py-2.5 font-medium transition-all disabled:opacity-70">
             {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />} حفظ
           </button>
+
+          <div className="border-t border-border-soft mt-6 pt-5">
+            <p className="text-xs text-slate-500 mb-1">اسم المستخدم (بتسجّل بيه الدخول)</p>
+            <div className="flex flex-col sm:flex-row gap-3">
+              <input
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                dir="ltr"
+                className="flex-1 border border-border-soft rounded-xl px-3 py-2.5 font-mono-data focus:outline-none focus:ring-2 focus:ring-accent"
+              />
+              <button
+                onClick={handleChangeOwnUsername}
+                disabled={usernameBusy}
+                className="flex items-center justify-center gap-2 bg-navy-900 text-white rounded-xl px-5 py-2.5 text-sm font-medium hover:bg-navy-800 transition-colors disabled:opacity-70"
+              >
+                {usernameBusy ? <Loader2 size={16} className="animate-spin" /> : <Pencil size={15} />}
+                تغيير اسم المستخدم
+              </button>
+            </div>
+            <p className="text-xs text-slate-400 mt-2">لو غيّرته، هتحتاج تسجّل دخول تاني بالاسم الجديد المرة الجاية.</p>
+          </div>
         </div>
       )}
 
       {tab === 'users' && (
-        <div className="card overflow-hidden">
-          <div className="p-5 pb-0 flex items-center gap-2">
-            <Users size={16} className="text-accent-dark" />
-            <p className="font-display font-bold text-navy-900">المستخدمون</p>
-          </div>
-          <p className="text-xs text-slate-500 px-5 pt-2">
-            تقدر تعطّل حساب أو تغيّر دوره من هنا. **إنشاء حساب مستخدم جديد** لسه
-            لازم يتم من Supabase مباشرة (Authentication → Add User + سطر إضافة
-            في جدول users) لأسباب أمان — مينفعش يتعمل من واجهة التطبيق العادية.
-          </p>
-          {usersLoading ? (
-            <div className="flex items-center justify-center gap-2 p-6 text-slate-500">
-              <Loader2 size={16} className="animate-spin" /> جاري التحميل...
+        <div className="space-y-4">
+          <div className="card overflow-hidden">
+            <div className="p-5 pb-4 flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <Users size={16} className="text-accent-dark" />
+                <p className="font-display font-bold text-navy-900">المستخدمون</p>
+              </div>
+              <button
+                onClick={() => { setShowAddUser((v) => !v); setAddUserError('') }}
+                className="flex items-center gap-2 bg-navy-900 text-white rounded-xl px-3.5 py-2 text-sm font-medium hover:bg-navy-800 transition-colors"
+              >
+                <UserPlus size={15} />
+                مستخدم جديد
+              </button>
             </div>
-          ) : (
-            <ul className="mt-3">
-              {users.map((u) => (
-                <li key={u.id} className="flex items-center justify-between gap-3 px-5 py-3 border-t border-border-soft">
-                  <div className="min-w-0">
-                    <p className={`text-sm font-medium ${u.is_active ? 'text-navy-900' : 'text-slate-400 line-through'}`}>{u.full_name}</p>
-                    <p className="text-xs text-slate-500 font-mono-data">{u.username}</p>
-                  </div>
-                  <div className="flex items-center gap-3 shrink-0">
-                    <select
-                      value={u.role}
-                      onChange={(e) =>
-                        updateUserRole(
-                          u,
-                          e.target.value as UserRow['role']
-                        )
-                      }
-                      className="text-xs border border-border-soft rounded-lg px-2 py-1.5"
-                    >
-                      <option value="owner">مالك</option>
-                      <option value="warehouse_manager">مدير مخزن</option>
-                      <option value="sales">مبيعات</option>
-                      <option value="purchasing">مشتريات</option>
-                      <option value="accountant">محاسب</option>
-                    </select>
-                    <button
-                      onClick={() => toggleUserActive(u)}
-                      className={u.is_active ? 'text-emerald-600' : 'text-slate-400'}
-                      title={u.is_active ? 'إيقاف الحساب' : 'تفعيل الحساب'}
-                    >
-                      <Power size={16} />
-                    </button>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
+
+            {showAddUser && (
+              <div className="mx-5 mb-5 p-4 rounded-xl border border-border-soft bg-surface">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+                  <input
+                    value={addUserForm.full_name}
+                    onChange={(e) => setAddUserForm({ ...addUserForm, full_name: e.target.value })}
+                    placeholder="الاسم بالكامل"
+                    className="border border-border-soft rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-accent"
+                  />
+                  <input
+                    value={addUserForm.phone}
+                    onChange={(e) => setAddUserForm({ ...addUserForm, phone: e.target.value })}
+                    placeholder="رقم الهاتف (اختياري)"
+                    className="border border-border-soft rounded-xl px-3 py-2.5 text-sm font-mono-data focus:outline-none focus:ring-2 focus:ring-accent"
+                  />
+                  <input
+                    value={addUserForm.username}
+                    onChange={(e) => setAddUserForm({ ...addUserForm, username: e.target.value })}
+                    placeholder="اسم المستخدم (بالإنجليزي، بدون مسافات)"
+                    dir="ltr"
+                    className="border border-border-soft rounded-xl px-3 py-2.5 text-sm font-mono-data focus:outline-none focus:ring-2 focus:ring-accent"
+                  />
+                  <input
+                    type="password"
+                    value={addUserForm.password}
+                    onChange={(e) => setAddUserForm({ ...addUserForm, password: e.target.value })}
+                    placeholder="كلمة المرور (6 حروف على الأقل)"
+                    className="border border-border-soft rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-accent"
+                  />
+                </div>
+                {addUserError && <p className="text-red-600 text-xs mb-3">{addUserError}</p>}
+                <button
+                  onClick={handleCreateUser}
+                  disabled={addUserBusy}
+                  className="flex items-center justify-center gap-2 bg-emerald-600 text-white rounded-xl px-4 py-2 text-sm font-medium hover:bg-emerald-700 transition-colors disabled:opacity-70"
+                >
+                  {addUserBusy ? <Loader2 size={15} className="animate-spin" /> : <Check size={15} />}
+                  إنشاء الحساب
+                </button>
+              </div>
+            )}
+
+            {userActionError && <p className="text-red-600 text-xs px-5 mb-2">{userActionError}</p>}
+
+            {usersLoading ? (
+              <div className="flex items-center justify-center gap-2 p-6 text-slate-500">
+                <Loader2 size={16} className="animate-spin" /> جاري التحميل...
+              </div>
+            ) : (
+              <ul>
+                {users.map((u) => (
+                  <li key={u.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-5 py-3 border-t border-border-soft">
+                    <div className="min-w-0">
+                      <p className={`text-sm font-medium ${u.is_active ? 'text-navy-900' : 'text-slate-400 line-through'}`}>{u.full_name}</p>
+                      {editingUsernameId === u.id ? (
+                        <div className="flex items-center gap-1.5 mt-1">
+                          <input
+                            value={editingUsernameValue}
+                            onChange={(e) => setEditingUsernameValue(e.target.value)}
+                            dir="ltr"
+                            autoFocus
+                            className="text-xs border border-border-soft rounded-lg px-2 py-1 font-mono-data w-36 focus:outline-none focus:ring-2 focus:ring-accent"
+                          />
+                          <button onClick={() => saveEditUsername(u.id)} disabled={userActionBusy === u.id} className="text-emerald-600 hover:text-emerald-700">
+                            {userActionBusy === u.id ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
+                          </button>
+                          <button onClick={() => setEditingUsernameId(null)} className="text-slate-400 hover:text-red-600">
+                            <X size={14} />
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => startEditUsername(u)}
+                          className="flex items-center gap-1 text-xs text-slate-500 font-mono-data hover:text-accent-dark mt-0.5"
+                        >
+                          {u.username}
+                          <Pencil size={11} className="text-slate-400" />
+                        </button>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-3 shrink-0">
+                      <select
+                        value={u.role}
+                        onChange={(e) =>
+                          updateUserRole(
+                            u,
+                            e.target.value as UserRow['role']
+                          )
+                        }
+                        className="text-xs border border-border-soft rounded-lg px-2 py-1.5"
+                      >
+                        <option value="owner">مالك</option>
+                        <option value="warehouse_manager">مدير مخزن</option>
+                        <option value="sales">مبيعات</option>
+                        <option value="purchasing">مشتريات</option>
+                        <option value="accountant">محاسب</option>
+                      </select>
+                      <button
+                        onClick={() => handleResetOtherPassword(u)}
+                        disabled={userActionBusy === u.id}
+                        className="text-slate-500 hover:text-accent-dark disabled:opacity-50"
+                        title="إعادة تعيين كلمة المرور"
+                      >
+                        <KeyRound size={16} />
+                      </button>
+                      <button
+                        onClick={() => toggleUserActive(u)}
+                        className={u.is_active ? 'text-emerald-600' : 'text-slate-400'}
+                        title={u.is_active ? 'إيقاف الحساب' : 'تفعيل الحساب'}
+                      >
+                        <Power size={16} />
+                      </button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
         </div>
       )}
 

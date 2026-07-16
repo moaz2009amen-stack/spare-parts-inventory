@@ -27,6 +27,7 @@ const Reports = lazy(() => import('./pages/Reports'))
 const ProductReport = lazy(() => import('./pages/ProductReport'))
 const WarehouseReport = lazy(() => import('./pages/WarehouseReport'))
 const OrderReport = lazy(() => import('./pages/OrderReport'))
+const SaleReport = lazy(() => import('./pages/SaleReport'))
 const ActivityLog = lazy(() => import('./pages/ActivityLog'))
 
 function PageLoader() {
@@ -55,6 +56,7 @@ function AppContent() {
             <Route path="/reports/product/:id" element={<ProductReport />} />
             <Route path="/reports/warehouse/:id" element={<WarehouseReport />} />
             <Route path="/reports/order/:id" element={<OrderReport />} />
+            <Route path="/reports/sale/:id" element={<SaleReport />} />
             <Route path="/products" element={<Products />} />
             <Route path="/categories" element={<Categories />} />
             <Route path="/customers" element={<Customers />} />

@@ -4,7 +4,7 @@ import { Search, Loader2 } from 'lucide-react'
 import { supabase } from '../lib/supabaseClient'
 
 interface JumpResult {
-  type: 'طلبية' | 'صنف' | 'عميل' | 'مخزن'
+  type: 'طلبية' | 'فاتورة' | 'صنف' | 'عميل' | 'مخزن'
   label: string
   sublabel?: string
   path: string
@@ -41,8 +41,9 @@ export default function ReportQuickJump() {
     setLoading(true)
     const timeout = setTimeout(async () => {
       const like = `%${term}%`
-      const [orders, productsByName, productsByPart, customers, warehouses] = await Promise.all([
+      const [orders, salesInvoices, productsByName, productsByPart, customers, warehouses] = await Promise.all([
         supabase.from('orders').select('id, order_number').ilike('order_number', like).limit(5),
+        supabase.from('sales_invoices').select('id, invoice_number').ilike('invoice_number', like).limit(5),
         supabase.from('products').select('id, name, part_number').ilike('name', like).limit(5),
         supabase.from('products').select('id, name, part_number').ilike('part_number', like).limit(5),
         supabase.from('customers').select('id, name').ilike('name', like).limit(5),
@@ -61,6 +62,11 @@ export default function ReportQuickJump() {
           type: 'طلبية' as const,
           label: o.order_number,
           path: `/reports/order/${o.id}`,
+        })),
+        ...(salesInvoices.data ?? []).map((s) => ({
+          type: 'فاتورة' as const,
+          label: s.invoice_number,
+          path: `/reports/sale/${s.id}`,
         })),
         ...Array.from(productMap.values()).map((p) => ({
           type: 'صنف' as const,
@@ -99,7 +105,7 @@ export default function ReportQuickJump() {
             setOpen(true)
           }}
           onFocus={() => setOpen(true)}
-          placeholder="وصول سريع لتقرير: رقم طلبية، صنف، عميل، أو مخزن..."
+          placeholder="وصول سريع لتقرير: رقم طلبية، رقم فاتورة، صنف، عميل، أو مخزن..."
           className="w-full border border-border-soft rounded-xl pr-9 pl-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-accent transition-shadow"
         />
         {loading && (

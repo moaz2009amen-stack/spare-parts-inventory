@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react'
 import { Loader2, TrendingUp, TrendingDown, Users, Package, DollarSign, ShoppingBag } from 'lucide-react'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import { supabase } from '../lib/supabaseClient'
+import { getPeriodRange, periodLabels, type PeriodType } from '../lib/dateRanges'
+import PeriodSelector from '../components/PeriodSelector'
 
 interface TopEntry {
   name: string
@@ -23,32 +25,45 @@ interface ChartPoint {
 }
 
 export default function Dashboard() {
+  const [period, setPeriod] = useState<PeriodType>('month')
+  const [customFrom, setCustomFrom] = useState('')
+  const [customTo, setCustomTo] = useState('')
   const [loading, setLoading] = useState(true)
   const [totalSales, setTotalSales] = useState(0)
   const [totalOrdersCost, setTotalOrdersCost] = useState(0)
   const [totalProfit, setTotalProfit] = useState(0)
-  const [totalOrdersCount, setTotalOrdersCount] = useState(0)
+  const [invoicesCount, setInvoicesCount] = useState(0)
   const [topCustomers, setTopCustomers] = useState<TopEntry[]>([])
   const [topSellingProducts, setTopSellingProducts] = useState<TopEntry[]>([])
   const [leastSellingProducts, setLeastSellingProducts] = useState<TopEntry[]>([])
   const [latestInvoices, setLatestInvoices] = useState<LatestInvoice[]>([])
   const [chartData, setChartData] = useState<ChartPoint[]>([])
 
+  const range = getPeriodRange(period, customFrom, customTo)
+
   useEffect(() => {
     let cancelled = false
 
     async function loadStats() {
-      const thirtyDaysAgo = new Date()
-      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 29)
-      thirtyDaysAgo.setHours(0, 0, 0, 0)
+      setLoading(true)
+      const fromIso = range.from.toISOString()
+      const toIso = range.to.toISOString()
 
+      // كل الاستعلامات هنا محصورة بالفترة المختارة بس — مش كل تاريخ
+      // النظام من أول يوم، عشان الصفحة تفضل سريعة حتى مع سنين من
+      // البيانات المتراكمة
       const [
         salesRes, ordersRes, saleItemsRes,
         customersRes, productsRes, warehousesRes,
       ] = await Promise.all([
-        supabase.from('sales_invoices').select('*').order('created_at', { ascending: false }),
-        supabase.from('orders').select('*').order('created_at', { ascending: false }),
-        supabase.from('sales_invoice_items').select('*, sales_invoices(created_at)'),
+        supabase.from('sales_invoices').select('*')
+          .gte('created_at', fromIso).lte('created_at', toIso)
+          .order('created_at', { ascending: false }),
+        supabase.from('orders').select('*')
+          .gte('created_at', fromIso).lte('created_at', toIso)
+          .order('created_at', { ascending: false }),
+        supabase.from('sales_invoice_items').select('*, sales_invoices!inner(created_at)')
+          .gte('sales_invoices.created_at', fromIso).lte('sales_invoices.created_at', toIso),
         supabase.from('customers').select('id, name'),
         supabase.from('products').select('id, name'),
         supabase.from('warehouses').select('id, name'),
@@ -65,7 +80,7 @@ export default function Dashboard() {
 
       setTotalSales(sales.reduce((sum, s) => sum + s.total_amount, 0))
       setTotalOrdersCost(orders.reduce((sum, o) => sum + o.total_cost, 0))
-      setTotalOrdersCount(sales.length)
+      setInvoicesCount(sales.length)
 
       // الربح الدقيق: الإيراد ناقص التكلفة الفعلية الحقيقية (actual_cost)
       // المسجّلة وقت البيع من نظام الدفعات (FIFO)، مش تقدير
@@ -87,9 +102,15 @@ export default function Dashboard() {
       })
       setTotalProfit(profit)
 
+      // نقط الرسم البياني بعدد أيام الفترة المختارة بالظبط (يوم/أسبوع/شهر
+      // بيدّوا رسم يومي مقروء، وسنة كاملة بتدّي رسم كثيف لكن لسه سريع)
+      const dayCount = Math.min(
+        Math.round((range.to.getTime() - range.from.getTime()) / (1000 * 60 * 60 * 24)) + 1,
+        366
+      )
       const chart: ChartPoint[] = []
-      for (let i = 0; i < 30; i++) {
-        const d = new Date(thirtyDaysAgo)
+      for (let i = 0; i < dayCount; i++) {
+        const d = new Date(range.from)
         d.setDate(d.getDate() + i)
         const key = d.toISOString().slice(0, 10)
         chart.push({
@@ -142,23 +163,31 @@ export default function Dashboard() {
 
     loadStats()
     return () => { cancelled = true }
-  }, [])
-
-  if (loading) {
-    return (
-      <div className="p-8 flex items-center gap-2 text-slate-500">
-        <Loader2 size={16} className="animate-spin" />
-        جاري تحميل الإحصائيات...
-      </div>
-    )
-  }
+  }, [period, customFrom, customTo])
 
   const profitMargin = totalSales > 0 ? (totalProfit / totalSales) * 100 : 0
 
   return (
     <div className="page-enter p-4 md:p-6 max-w-6xl mx-auto">
-      <h1 className="font-display text-xl md:text-2xl font-bold text-navy-900 mb-5 md:mb-6">لوحة الإحصائيات</h1>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5 md:mb-6">
+        <h1 className="font-display text-xl md:text-2xl font-bold text-navy-900">لوحة الإحصائيات</h1>
+        <PeriodSelector
+          period={period}
+          onPeriodChange={setPeriod}
+          customFrom={customFrom}
+          customTo={customTo}
+          onCustomFromChange={setCustomFrom}
+          onCustomToChange={setCustomTo}
+        />
+      </div>
 
+      {loading ? (
+        <div className="p-8 flex items-center gap-2 text-slate-500">
+          <Loader2 size={16} className="animate-spin" />
+          جاري تحميل الإحصائيات...
+        </div>
+      ) : (
+      <>
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
         <div className="card p-4 flex items-center gap-3">
           <div className="w-10 h-10 shrink-0 rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-600">
@@ -193,7 +222,7 @@ export default function Dashboard() {
           </div>
           <div className="min-w-0">
             <p className="text-xs text-slate-500">عدد الفواتير</p>
-            <p className="font-mono-data font-bold text-navy-900 truncate">{totalOrdersCount}</p>
+            <p className="font-mono-data font-bold text-navy-900 truncate">{invoicesCount}</p>
           </div>
         </div>
       </div>
@@ -204,7 +233,7 @@ export default function Dashboard() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
         <div className="card p-5">
-          <p className="font-display font-bold text-navy-900 mb-3">المبيعات — آخر 30 يوم</p>
+          <p className="font-display font-bold text-navy-900 mb-3">المبيعات — {periodLabels[period]}</p>
           <ResponsiveContainer width="100%" height={220}>
             <LineChart data={chartData}>
               <CartesianGrid strokeDasharray="3 3" stroke="#e7e9f2" />
@@ -217,7 +246,7 @@ export default function Dashboard() {
         </div>
 
         <div className="card p-5">
-          <p className="font-display font-bold text-navy-900 mb-3">الأرباح — آخر 30 يوم</p>
+          <p className="font-display font-bold text-navy-900 mb-3">الأرباح — {periodLabels[period]}</p>
           <ResponsiveContainer width="100%" height={220}>
             <LineChart data={chartData}>
               <CartesianGrid strokeDasharray="3 3" stroke="#e7e9f2" />
@@ -301,6 +330,8 @@ export default function Dashboard() {
           )}
         </div>
       </div>
+      </>
+      )}
     </div>
   )
 }
