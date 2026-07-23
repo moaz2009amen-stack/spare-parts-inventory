@@ -154,6 +154,18 @@ export default function Sales() {
     const unit = availableUnits.find((u) => u.unit_name === picker.unit_name)
     if (!unit) return
 
+    const quantity = Number(picker.quantity)
+    const unitPrice = Number(picker.unit_price)
+    if (!(quantity > 0)) {
+      setError('الكمية لازم تكون رقم أكبر من صفر')
+      return
+    }
+    if (!(unitPrice >= 0)) {
+      setError('سعر الوحدة مينفعش يكون رقم سالب')
+      return
+    }
+    setError('')
+
     setCart([
       ...cart,
       {
@@ -161,8 +173,8 @@ export default function Sales() {
         product_name: selectedProduct.name,
         unit_name: unit.unit_name,
         conversion_factor: unit.conversion_factor,
-        quantity: Number(picker.quantity),
-        unit_price: Number(picker.unit_price),
+        quantity,
+        unit_price: unitPrice,
       },
     ])
     setPicker({ product_id: '', unit_name: 'قطعة', quantity: '1', unit_price: '' })
@@ -199,6 +211,14 @@ export default function Sales() {
     }
     if (Number(paidAmount) < 0) {
       setError('المبلغ المدفوع مينفعش يكون رقم سالب')
+      return
+    }
+    if (discountValue < 0) {
+      setError('الخصم مينفعش يكون رقم سالب')
+      return
+    }
+    if (discountValue > subtotal) {
+      setError(`الخصم (${discountValue.toFixed(2)}) أكبر من إجمالي الفاتورة قبل الخصم (${subtotal.toFixed(2)})`)
       return
     }
     if (Number(paidAmount) > total) {

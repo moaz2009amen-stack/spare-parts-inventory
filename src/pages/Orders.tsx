@@ -112,6 +112,18 @@ export default function Orders() {
     const unit = availableUnits.find((u) => u.unit_name === picker.unit_name)
     if (!unit) return
 
+    const quantity = Number(picker.quantity)
+    const unitCost = Number(picker.unit_cost)
+    if (!(quantity > 0)) {
+      setError('الكمية لازم تكون رقم أكبر من صفر')
+      return
+    }
+    if (!(unitCost >= 0)) {
+      setError('تكلفة الوحدة مينفعش تكون رقم سالب')
+      return
+    }
+    setError('')
+
     setCart([
       ...cart,
       {
@@ -119,8 +131,8 @@ export default function Orders() {
         product_name: selectedProduct.name,
         unit_name: unit.unit_name,
         conversion_factor: unit.conversion_factor,
-        quantity: Number(picker.quantity),
-        unit_cost: Number(picker.unit_cost),
+        quantity,
+        unit_cost: unitCost,
         sale_price: picker.sale_price ? Number(picker.sale_price) : null,
       },
     ])
@@ -153,6 +165,14 @@ export default function Orders() {
     }
     if (!warehouseId) {
       setError('اختر المخزن')
+      return
+    }
+    if (discountValue < 0) {
+      setError('الخصم مينفعش يكون رقم سالب')
+      return
+    }
+    if (discountValue > subtotal) {
+      setError(`الخصم (${discountValue.toFixed(2)}) أكبر من إجمالي الطلبية قبل الخصم (${subtotal.toFixed(2)})`)
       return
     }
 

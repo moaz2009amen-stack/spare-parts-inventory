@@ -56,12 +56,19 @@ export default function ProductUnitsPanel({ productId }: { productId: string }) 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
+
+    const factor = Number(form.conversion_factor)
+    if (!(factor > 0)) {
+      setError('عدد القطع لازم يكون رقم أكبر من صفر — لو يساوي صفر، أي بيع بالوحدة دي هيسجّل استهلاك صفر من المخزون فعليًا')
+      return
+    }
+
     setSaving(true)
 
     const { error } = await supabase.from('product_units').insert({
       product_id: productId,
       unit_name: form.unit_name,
-      conversion_factor: Number(form.conversion_factor),
+      conversion_factor: factor,
       barcode: form.barcode || null,
     })
 
@@ -106,6 +113,7 @@ export default function ProductUnitsPanel({ productId }: { productId: string }) 
           onChange={handleChange}
           placeholder="عدد القطع"
           type="number"
+          min="0.01"
           step="0.01"
           required
           className="border border-border-soft rounded-xl px-2 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-accent transition-shadow"

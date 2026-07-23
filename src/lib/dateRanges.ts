@@ -15,7 +15,9 @@ export function getPeriodRange(period: PeriodType, customFrom?: string, customTo
     from.setHours(0, 0, 0, 0)
     const toCustom = new Date(customTo)
     toCustom.setHours(23, 59, 59, 999)
-    return { from, to: toCustom }
+    // لو حد كتب "من" بعد "لحد" بالغلط، نبدّلهم بدل ما نرجّع فترة فاضية
+    // تخلي كل الصفحات تظهر "لا توجد بيانات" من غير أي تفسير
+    return from <= toCustom ? { from, to: toCustom } : { from: toCustom, to: from }
   }
 
   const from = new Date(now)

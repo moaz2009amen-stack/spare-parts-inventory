@@ -132,6 +132,12 @@ export default function Stocktake() {
     setError('')
     setSuccess('')
 
+    const negativeRow = rows.find((r) => r.countedQty !== '' && Number(r.countedQty) < 0)
+    if (negativeRow) {
+      setError(`الكمية المعدودة لصنف "${negativeRow.name}" مينفعش تكون رقم سالب`)
+      return
+    }
+
     const changedItems = rows
       .filter((r) => r.countedQty !== '' && Number(r.countedQty) !== r.systemQty)
       .map((r) => ({ product_id: r.productId, counted_quantity: Number(r.countedQty) }))
@@ -245,6 +251,7 @@ export default function Stocktake() {
                           <td className="p-3 whitespace-nowrap">
                             <input
                               type="number"
+                              min="0"
                               value={row.countedQty}
                               onChange={(e) => handleCountChange(row.productId, e.target.value)}
                               className="w-24 border border-border-soft rounded-lg px-2 py-1.5 font-mono-data focus:outline-none focus:ring-2 focus:ring-accent"
